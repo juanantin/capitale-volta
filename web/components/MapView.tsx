@@ -23,7 +23,7 @@ export default function MapView() {
       if (!el) return;
       const [x, y] = sc.worldToScreen(PLACES[k]);
       // just above each landmark
-      const lift = k === "napoli" ? 250 : k === "venezia" ? 330 : k === "mayor" ? 210 : k === "roma" ? 130 : 200;
+      const lift = k === "mayor" ? 210 : k === "roma" ? 130 : 200;
       const s = Math.max(0.55, Math.min(1.15, sc.scale * 2.4));
       el.style.transform = `translate(${x}px, ${y - lift * sc.scale}px) translate(-50%, -100%) scale(${s})`;
     });
@@ -87,7 +87,7 @@ export default function MapView() {
             <span className="banner-city">{D.city}</span>
           </div>
         ))}
-        <div ref={(el) => { banners.current[4] = el; }} className="banner mayor-banner">
+        <div ref={(el) => { banners.current[DISTRICTS.length] = el; }} className="banner mayor-banner">
           <span className="banner-token">IL SINDACO</span>
           <span className="banner-city">#0</span>
         </div>

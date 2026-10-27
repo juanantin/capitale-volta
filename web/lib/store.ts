@@ -78,12 +78,12 @@ export interface CityState {
   me: string;
   chain: ChainInfo | null;
   buildings: Building[];
-  districtCount: [number, number, number, number];
+  districtCount: number[];
   week: number;
   weekEnd: number;
   currentToken: DistrictId;
-  votes: [number, number, number, number];
-  newBuilds: [number, number, number, number];
+  votes: number[];
+  newBuilds: number[];
   totalTaxEth: number;
   totalPurchases: number;
   totalBoughtUsd: number;
@@ -92,10 +92,10 @@ export interface CityState {
   streetEth: number;
   opsEth: number;
   opsPaidEth: number;
-  holdings: [number, number, number, number];
+  holdings: number[];
   ethUsd: number;
   capitaleUsd: number;
-  tokenUsd: [number, number, number, number];
+  tokenUsd: number[];
   approved: boolean;
   capitaleBalance: number;
   live: boolean;
@@ -126,13 +126,13 @@ function makeInitial(): CityState {
   const now = Math.floor(Date.now() / 1000);
   const weekEnd = nextDeadline(now);
   const buildings: Building[] = [];
-  const districtCount: [number, number, number, number] = [0, 0, 0, 0];
-  const weights = [0.3, 0.32, 0.2, 0.18];
+  const districtCount = DISTRICTS.map(() => 0);
+  const weights = [0.46, 0.54];
   const total = 1247;
   for (let id = 1; id <= total; id++) {
     let x = r();
     let d = 0 as DistrictId;
-    for (let k = 0; k < 4; k++) {
+    for (let k = 0; k < DISTRICTS.length; k++) {
       if (x < weights[k]) {
         d = k as DistrictId;
         break;
@@ -166,8 +166,8 @@ function makeInitial(): CityState {
     invitee.inviter = inviter.id;
     inviter.invites += 1;
   }
-  const votes: [number, number, number, number] = [0, 0, 0, 0];
-  for (const b of buildings) if (b.votedWeek === 0) votes[(b.id * 7 + b.district) % 4 === 1 || r() < 0.4 ? 1 : b.district]++;
+  const votes = DISTRICTS.map(() => 0);
+  for (const b of buildings) if (b.votedWeek === 0) votes[r() < 0.62 ? 1 : 0]++;
   const purchases: Purchase[] = [];
   for (let k = 0; k < 12; k++) {
     const eth = 0.1 + r() * 0.5;
@@ -183,7 +183,7 @@ function makeInitial(): CityState {
     weekEnd,
     currentToken: 1,
     votes,
-    newBuilds: [41, 38, 22, 29],
+    newBuilds: [63, 67],
     totalTaxEth: 38.42,
     totalPurchases: 212,
     totalBoughtUsd: 97_960,
@@ -192,10 +192,10 @@ function makeInitial(): CityState {
     streetEth: 0.045,
     opsEth: 0.054,
     opsPaidEth: 5.71,
-    holdings: [1_204_331, 2_418.6, 9_880_120, 812.4],
+    holdings: [1_204_331, 2_418.6],
     ethUsd: 3000,
     capitaleUsd: 0.00108,
-    tokenUsd: [0.42, 3.1, 0.0061, 1.02],
+    tokenUsd: [0.42, 3.1],
     approved: false,
     capitaleBalance: 250_000,
     live: true,
@@ -250,7 +250,7 @@ export function setMode(mode: Mode) {
   if (s.mode === mode) return;
   if (mode === "testnet") {
     previewState = s;
-    state = { ...s, mode, live: false, chain: null, buildings: [], districtCount: [0, 0, 0, 0], purchases: [], me: "" };
+    state = { ...s, mode, live: false, chain: null, buildings: [], districtCount: DISTRICTS.map(() => 0), purchases: [], me: "" };
   } else {
     state = previewState ?? makeInitial();
   }
@@ -392,8 +392,8 @@ export function settleIfDue(now: number) {
     week: s.week + 1,
     weekEnd: nextDeadline(now),
     currentToken: best > 0 && !tie ? idx : s.currentToken,
-    votes: [0, 0, 0, 0],
-    newBuilds: [0, 0, 0, 0],
+    votes: DISTRICTS.map(() => 0),
+    newBuilds: DISTRICTS.map(() => 0),
   });
 }
 
@@ -403,7 +403,7 @@ export function tick() {
   if (s.mode !== "preview" || !s.live) return;
   const r = Math.random();
   if (r < 0.45 && s.buildings.length < MAX_BUILDINGS) {
-    const d = Math.floor(Math.random() * 4) as DistrictId;
+    const d = Math.floor(Math.random() * DISTRICTS.length) as DistrictId;
     const inviter = Math.random() < 0.35 ? 1 + Math.floor(Math.random() * Math.min(400, s.buildings.length)) : 0;
     build(NAMES[Math.floor(Math.random() * NAMES.length)], d, Math.floor(Math.random() * 3) as 0 | 1 | 2, inviter);
   } else if (r < 0.75) {

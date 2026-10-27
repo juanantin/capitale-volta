@@ -23,15 +23,21 @@ contract TestKitTest is Test {
         CapitalePricing pricing = new CapitalePricing(
             juan, ICapitaleOracle(address(kit.oracle())), block.timestamp, 300, 40e18, [uint256(52e18), 68e18, 88e18, 120e18]
         );
-        CapitaleNFT nft = new CapitaleNFT(IERC20(address(kit.capitale())), ICapitalePricing(address(pricing)), juan);
-        TestToken[4] memory r = kit.rewardTokens();
+        CapitaleNFT nft = new CapitaleNFT(IERC20(address(kit.capitale())), ICapitalePricing(address(pricing)), juan, 2);
+        TestToken[2] memory r = kit.rewardTokens();
         ISwapAdapter a = ISwapAdapter(address(kit.adapter()));
+        IERC20[] memory toks = new IERC20[](2);
+        toks[0] = IERC20(address(r[0]));
+        toks[1] = IERC20(address(r[1]));
+        ISwapAdapter[] memory routes = new ISwapAdapter[](2);
+        routes[0] = a;
+        routes[1] = a;
         CapitaleVault vault = new CapitaleVault(
             juan,
             ICapitaleNFTView(address(nft)),
             pricing.earlyBirdEnd(),
-            [IERC20(address(r[0])), IERC20(address(r[1])), IERC20(address(r[2])), IERC20(address(r[3]))],
-            [a, a, a, a],
+            toks,
+            routes,
             ICapitaleOracle(address(kit.oracle())),
             juan,
             IWETH(address(0)),

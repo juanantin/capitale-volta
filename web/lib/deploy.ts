@@ -60,7 +60,7 @@ export async function deployTestCity(opts: DeployOptions, onStep: (i: number) =>
   const pricing = await deploy(pricingAbi, pricingBytecode, [me, oracle, BigInt(start), 300n, parseEther("40"), [parseEther("52"), parseEther("68"), parseEther("88"), parseEther("120")]]);
 
   onStep(2);
-  const nft = await deploy(nftAbi, nftBytecode, [capitale, pricing, me]);
+  const nft = await deploy(nftAbi, nftBytecode, [capitale, pricing, me, rewards.length]);
 
   onStep(3);
   const vault = await deploy(vaultAbi, vaultBytecode, [
@@ -68,7 +68,7 @@ export async function deployTestCity(opts: DeployOptions, onStep: (i: number) =>
     nft,
     BigInt(start + 6 * 3600),
     rewards,
-    [adapter, adapter, adapter, adapter],
+    rewards.map(() => adapter),
     oracle,
     me,
     "0x0000000000000000000000000000000000000000",

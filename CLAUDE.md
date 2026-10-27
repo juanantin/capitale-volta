@@ -1,7 +1,7 @@
 # CAPITALE — project brief for Claude Code
 
 Capitale is an exact replica of **Stockopolis ("Stock City")** on Base, with a toy map of
-Italy and four crypto tokens instead of four US stocks. The owner, Juan, is an animation
+Italy and two crypto tokens (STOCKIFY and STONKEX) instead of four US stocks. The owner, Juan, is an animation
 director with little Solidity experience: work autonomously, explain decisions in plain
 language, and ask only when a decision is genuinely his.
 
@@ -14,9 +14,9 @@ only lists what changes for Capitale. When in doubt, do what Stockopolis does.
 | BNB | ETH |
 | Flap tax token, 1% buy + 1% sell | $CAPITALE on Stonks Exchange at the 1% fee tier (decided by Juan); the creator's share of that fee is redirected to the vault after launch |
 | Flap VaultEx + Flap scheduled service | Whitelisted DEX router + keeper bot with the same rules |
-| 4 stock tokens: NVDAB, SPCXB, TSLAB, AAPLB | 4 tokens: STOCKIFY, STONKEX, DGUY, TEMU |
-| 4 Chinese-named streets | 4 Italian cities (table below) |
-| Chainlink / DEX average reference price | DEX TWAP on Base for all four tokens (no Chainlink feeds for them) |
+| 4 stock tokens: NVDAB, SPCXB, TSLAB, AAPLB | 2 tokens: STOCKIFY, STONKEX (decided by Juan; DGUY and TEMU dropped) |
+| 4 Chinese-named streets | 2 Italian cities (table below) |
+| Chainlink / DEX average reference price | DEX TWAP on Base for both tokens (no Chainlink feeds for them) |
 | Beijing time weekly deadline | Sunday 20:00 Rome time (Europe/Rome: CET in winter, CEST in summer) |
 
 ## Districts (locked)
@@ -24,12 +24,11 @@ only lists what changes for Capitale. When in doubt, do what Stockopolis does.
 |---|---|---|---|
 | STOCKIFY | Milano | gold | Duomo spires |
 | STONKEX | Roma | orange | Colosseum |
-| DGUY | Napoli | green | Vesuvius + pizzeria |
-| TEMU | Venezia | blue | Campanile + gondola |
 
 Token name BIG on each banner, city name small underneath. The token currently being
 bought (this week's vote winner) gets a "THIS WEEK" tag. Torino, Firenze and Sicilia art
-exists for possible later districts, but Stockopolis has exactly 4: keep 4.
+exists for possible later districts. Juan chose 2 districts (Milano owns the north, Roma the
+centre, south and islands). The contracts take the district count at deploy (max 4).
 
 ## Mechanics to implement (from the reference, with Capitale values)
 - **Tax:** 100% of the vault's fee income: 70% buys the week's token for residents, 15%
@@ -39,7 +38,7 @@ exists for possible later districts, but Stockopolis has exactly 4: keep 4.
   0.5 BNB / 3 BNB / 10 min / 4% / 6h pause / 24h idle pause). Scale the ETH thresholds to
   similar USD values and keep them as constructor parameters. Anyone can call requestBuy().
 - **Buildings (CityNFT → CapitaleNFT):** 3,000 + Mayor #0 at deploy; mint(district, style,
-  inviter, maxPrice); 4 districts × 3 styles, permanent; burn to dead address; sequential
+  inviter, maxPrice); 2 districts × 3 styles, permanent; burn to dead address; sequential
   numbers; plots per district nearest-to-farthest from the centre; freely transferable;
   rewards and height follow the NFT; vote lock after transfer within the week; invite
   decorations only. Non-upgradeable. Name "Capitale", symbol "PALAZZO", no royalties.
@@ -50,7 +49,7 @@ exists for possible later districts, but Stockopolis has exactly 4: keep 4.
   afterwards the lower of spot and a 30-60 min TWAP; revert above the builder's max.
 - **Dividends (CityVault → CapitaleVault):** residents' share split equally across
   buildings existing at purchase time; early-bird pool shared among early-bird buildings
-  when that period ends; claim / claimMany pay all four tokens at once, skipping any that
+  when that period ends; claim / claimMany pay both tokens at once, skipping any that
   fail to transfer; pendingUsd(id).
 - **Height:** cumulative claimed USD at purchase-time value; L1 $0, L2 $5, L3 $20, L4 $50,
   L5 $100, then +1 level per extra $50, no cap. Cosmetic only.
@@ -105,7 +104,7 @@ weekly vote.
    and early bird, price rules, tax split, buy rules and rejection/pause, dividends and
    early-bird pool, claims with a failing token, height levels, votes and transfer lock,
    street competition incl. ties, settle and rollover, permissions); fuzz + invariants.
-2. TWAP price reading for $CAPITALE and the four reward tokens on Base.
+2. TWAP price reading for $CAPITALE and the two reward tokens on Base.
 3. Mocks + Base Sepolia deploy + end-to-end demo.
 4. Keeper bot (hourly check, requestBuy, settle).
 5. Asset pipeline and missing art list.
@@ -113,8 +112,8 @@ weekly vote.
 7. Slither/Aderyn + an auditor checklist.
 
 ## Open questions to verify (do not assume)
-- Base addresses for STOCKIFY (STFY), DGUY and TEMU; STONKEX reported at
-  0x5ab000ff9b9ffe0349ce5ffa5fd86f217c3680f5 (verify on Basescan).
+- Base addresses (from Juan, verify on Basescan): STOCKIFY (STFY)
+  0xC6405D7a226e1C18E559Be2F335F74C01Ad07bF5, STONKEX 0x5ab000ff9B9FfE0349CE5ffA5fD86f217C3680F5.
 - Liquidity of each token on Base: enough for the buys without moving price past the
   deviation limit?
 - Fee tier is decided: 1%. Verify what share of that 1% reaches the creator address (and so
@@ -124,7 +123,6 @@ weekly vote.
 - Weekly deadline is fixed by Juan: Sunday 20:00 Rome time. The contract works in UTC, so
   handle daylight saving (18:00 UTC in summer, 19:00 UTC in winter) via a keeper-updated
   or precomputed schedule, and show the countdown in Rome time on the frontend.
-- "TEMU" is a real company's brand: remind Juan of the trademark risk before launch.
 
 ## Rules
 - Never ask for, print or store private keys or seed phrases. Use a gitignored `.env` or a

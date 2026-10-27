@@ -53,11 +53,12 @@ export function rememberCity(vault: Address | null) {
 
 export async function resolveAddresses(vault: Address): Promise<CityAddresses> {
   const v = { address: vault, abi: vaultAbi } as const;
-  const [nft, oracle, t0, t1, t2, t3, adapter] = await Promise.all([
+  const n0 = Number(await publicClient.readContract({ ...v, functionName: "districts" }));
+  const [nft, oracle, adapter, ...tokens] = await Promise.all([
     publicClient.readContract({ ...v, functionName: "nft" }),
     publicClient.readContract({ ...v, functionName: "oracle" }),
-    ...[0n, 1n, 2n, 3n].map((i) => publicClient.readContract({ ...v, functionName: "tokens", args: [i] })),
     publicClient.readContract({ ...v, functionName: "adapters", args: [0n] }),
+    ...Array.from({ length: n0 }, (_, i) => publicClient.readContract({ ...v, functionName: "tokens", args: [BigInt(i)] })),
   ]);
   const n = { address: nft as Address, abi: nftAbi } as const;
   const [pricing, capitale] = await Promise.all([
@@ -71,7 +72,7 @@ export async function resolveAddresses(vault: Address): Promise<CityAddresses> {
     capitale: capitale as Address,
     oracle: oracle as Address,
     adapter: adapter as Address,
-    tokens: [t0, t1, t2, t3] as Address[],
+    tokens: tokens as Address[],
   };
 }
 
@@ -123,8 +124,9 @@ async function readCity(a: CityAddresses, me: Address | null) {
     ...a.tokens.map((t) => publicClient.readContract({ ...o, functionName: "tokenUsd", args: [t] })),
     ...a.tokens.map((t) => publicClient.readContract({ address: t, abi: testTokenAbi, functionName: "balanceOf", args: [a.vault] })),
   ]);
-  const tokenUsd = rest.slice(0, 4) as bigint[];
-  const holdings = rest.slice(4, 8) as bigint[];
+  const nT = a.tokens.length;
+  const tokenUsd = rest.slice(0, nT) as bigint[];
+  const holdings = rest.slice(nT, 2 * nT) as bigint[];
 
   let quote: ChainInfo["quote"] = null;
   let quoteError: string | null = null;
@@ -185,7 +187,7 @@ async function readCity(a: CityAddresses, me: Address | null) {
       builtAt: st.builtAt,
     };
   });
-  const districtCount = [0, 0, 0, 0] as [number, number, number, number];
+  const districtCount = a.tokens.map(() => 0);
   for (const b of buildings) districtCount[b.district]++;
 
   // Recent purchases from events (public nodes limit how far back logs can go).
@@ -230,8 +232,8 @@ async function readCity(a: CityAddresses, me: Address | null) {
     week: Number(week),
     weekEnd: Number(weekEnd),
     currentToken: currentToken as DistrictId,
-    votes: votes.map(Number) as [number, number, number, number],
-    newBuilds: newBuilds.map(Number) as [number, number, number, number],
+    votes: votes.map(Number),
+    newBuilds: newBuilds.map(Number),
     totalTaxEth: num(totalTax),
     totalPurchases: Number(totalPurchases),
     totalBoughtUsd: num(totalBoughtUsd),
@@ -240,10 +242,10 @@ async function readCity(a: CityAddresses, me: Address | null) {
     streetEth: num(sEth),
     opsEth: num(oEth),
     opsPaidEth: 0,
-    holdings: holdings.map((h) => num(h)) as [number, number, number, number],
+    holdings: holdings.map((h) => num(h)),
     ethUsd: num(ethUsd as bigint),
     capitaleUsd: num(capUsd as bigint),
-    tokenUsd: tokenUsd.map((t) => num(t)) as [number, number, number, number],
+    tokenUsd: tokenUsd.map((t) => num(t)),
     approved: quote ? allowance >= maxBurn && allowance > 0n : allowance > 0n,
     capitaleBalance: num(capWei),
     live: false,

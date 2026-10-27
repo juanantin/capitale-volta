@@ -5,7 +5,6 @@ import { Application, Assets, Container, Graphics, Sprite, Texture } from "pixi.
 import {
   drawBoat,
   drawBuilding,
-  drawCampanile,
   drawCloud,
   drawColosseum,
   drawDuomo,
@@ -14,7 +13,6 @@ import {
   drawMayor,
   drawTree,
   drawCottage,
-  drawVesuvius,
   floorsForLevel,
   districtPalette,
 } from "./art";
@@ -298,11 +296,7 @@ export class CityScene {
     };
     mk("duomo", drawDuomo, PLACES.milano, "landmark_0", 110);
     mk("colosseum", drawColosseum, PLACES.roma, "landmark_1", 110);
-    const [vx, vy] = PLACES.napoli;
-    mk("vesuvius", drawVesuvius, [vx + 30, vy + 20], "landmark_2", 150);
-    mk("campanile", drawCampanile, PLACES.venezia, "landmark_3", 90);
     mk("mayor", drawMayor, PLACES.mayor, "mayor", 80);
-    if (!this.realTexture("landmark_2")) this.emitters.push({ p: [vx + 30, vy + 20 - 78 * LANDMARK_SCALE], rate: 2.2, acc: 0, big: true });
   }
 
   /** Fill every empty bit of land with countryside: cottages, cypresses and olive trees.
@@ -330,6 +324,10 @@ export class CityScene {
         const r = rnd();
         const baked = r < 0.42 ? cottages[Math.floor(rnd() * 3)] : kinds[Math.floor(rnd() * 3)];
         const s = this.place(baked, p, r < 0.42 ? 3 : 2.6 + rnd() * 0.8);
+        // A few cottages have a smoking chimney.
+        if (r < 0.42 && rnd() < 0.06 && this.emitters.length < 40) {
+          this.emitters.push({ p: [p[0] + 4, p[1] - 21 * 3], rate: 0.5, acc: rnd(), big: false });
+        }
         const idx = this.trees.push({ s, p }) - 1;
         const key = `${Math.floor(p[0] / 60)},${Math.floor(p[1] / 60)}`;
         (this.treeGrid.get(key) ?? this.treeGrid.set(key, []).get(key)!).push(idx);
@@ -451,7 +449,6 @@ export class CityScene {
     this.sprites.clear();
     this.levels.clear();
     this.buildingsById.clear();
-    this.emitters = this.emitters.filter((e) => e.big);
     for (const t of this.trees) t.s.visible = true;
     this.select(null);
   }
@@ -480,7 +477,6 @@ export class CityScene {
     this.sprites.set(b.id, s);
     this.levels.set(b.id, level);
     this.clearTreesAround(p);
-    if (b.district === 2 && b.style === 0 && this.emitters.length < 40) this.emitters.push({ p: [p[0] + 3 * BUILDING_SCALE, p[1] - 22 * BUILDING_SCALE], rate: 0.6, acc: Math.random(), big: false });
     if (!animate || this.reducedMotion) return;
     s.scale.set(0);
     const k = this.base.get(s)!;
@@ -508,10 +504,10 @@ export class CityScene {
   }
 
   private updateMarkers(buildings: Building[]) {
-    const counts = [0, 0, 0, 0];
+    const counts = DISTRICTS.map(() => 0);
     for (const b of buildings) counts[b.district] = Math.max(counts[b.district], b.plot + 1);
     if (this.markers.length === 0) {
-      for (let d = 0; d < 4; d++) {
+      for (let d = 0; d < DISTRICTS.length; d++) {
         const baked = this.bake(`plot${d}`, (c) => {
           const g = new Graphics();
           drawEmptyPlot(g, parseInt(DISTRICTS[d].colour.slice(1), 16));

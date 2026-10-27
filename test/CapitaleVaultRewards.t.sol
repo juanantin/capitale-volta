@@ -27,7 +27,7 @@ contract CapitaleVaultRewardsTest is BaseTest {
         assertEq(vault.pending(1, 0), res / 2);
         assertEq(vault.pending(2, 0), res / 2);
         // A later building gets nothing from earlier purchases.
-        build(carol, 2);
+        build(carol, 0);
         assertEq(vault.pending(3, 0), 0);
         _buy(0.2 ether);
         assertEq(vault.pending(3, 0), res / 3);
@@ -64,7 +64,7 @@ contract CapitaleVaultRewardsTest is BaseTest {
         assertEq(vault.pending(1, 0), 0);
 
         goPublic();
-        build(carol, 2); // not early bird, built after the window: settles the pool first
+        build(carol, 0); // not early bird, built after the window: settles the pool first
         assertTrue(vault.earlyBirdFinalized());
         assertEq(vault.pending(1, 0), res / 2);
         assertEq(vault.pending(2, 0), res / 2);
@@ -80,19 +80,20 @@ contract CapitaleVaultRewardsTest is BaseTest {
         assertEq(vault.pending(1, 0), _residentsOut(0, 0.2 ether));
     }
 
-    function test_claimPaysAllFourTokens() public {
+    function test_claimPaysBothTokens() public {
         goPublic();
         build(alice, 0);
-        for (uint8 t; t < 4; ++t) {
+        for (uint8 t; t < 2; ++t) {
             vm.prank(alice);
             vault.vote(ids1(1), t);
             vm.warp(vault.weekEnd());
             _buy(0.2 ether); // settles first, so it buys token t
         }
-        uint256[4] memory p = vault.pendingAll(1);
+        uint256[] memory p = vault.pendingAll(1);
+        assertEq(p.length, 2);
         vm.prank(alice);
         vault.claim(1);
-        for (uint8 t; t < 4; ++t) {
+        for (uint8 t; t < 2; ++t) {
             assertGt(p[t], 0);
             assertEq(rewards[t].balanceOf(alice), p[t]);
             assertEq(vault.pending(1, t), 0);
@@ -196,7 +197,7 @@ contract CapitaleVaultRewardsTest is BaseTest {
         nBuildings = uint8(bound(nBuildings, 1, 40));
         tax = uint96(bound(tax, 0.2 ether, 50 ether));
         for (uint256 i; i < nBuildings; ++i) {
-            build(i % 2 == 0 ? alice : bob, uint8(i % 4));
+            build(i % 2 == 0 ? alice : bob, uint8((i / 2) % 2));
         }
         payTax(tax);
         for (uint256 k; k < 100 && vault.residentsEth() + vault.streetEth() >= 0.1 ether; ++k) {

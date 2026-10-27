@@ -7,8 +7,9 @@ export default function WhitePaper() {
       <h3>1. What is Capitale?</h3>
       <p>
         Capitale is a city-building game on Base. You burn $CAPITALE to build a palazzo on a toy map of Italy. Every
-        palazzo is an NFT that receives a share of the city&apos;s weekly purchases of four tokens: STOCKIFY, STONKEX,
-        DGUY and TEMU. Each token has its own district: Milano, Roma, Napoli and Venezia.
+        palazzo is an NFT that receives a share of the city&apos;s weekly purchases of two tokens: STOCKIFY and
+        STONKEX. Each token has its own district: STOCKIFY is Milano (the north), STONKEX is Roma (the centre and
+        south).
       </p>
 
       <h3>2. $CAPITALE and the city tax</h3>
@@ -29,7 +30,7 @@ export default function WhitePaper() {
       <h3>4. Buildings</h3>
       <ul>
         <li>3,000 palazzi in total. The Mayor&apos;s palazzo, #0, is minted at launch; it earns nothing and has no vote.</li>
-        <li>To build: choose a district (Milano, Roma, Napoli, Venezia) and one of 3 styles. Both are permanent. Optionally enter the number of the building that invited you.</li>
+        <li>To build: choose a district (Milano or Roma) and one of 3 styles. Both are permanent. Optionally enter the number of the building that invited you.</li>
         <li>Numbers are sequential across the city. Within a district, earlier buildings get the plots nearest the centre.</li>
         <li>Palazzi are normal NFTs: you can sell or transfer them. Unclaimed rewards and height move with the building.</li>
         <li>Invites are decorations only (flags, neon signs, fireworks). There is no referral income.</li>
@@ -49,7 +50,7 @@ export default function WhitePaper() {
       <ul>
         <li>The residents&apos; 70% of each purchase is split equally among all palazzi that exist at that moment.</li>
         <li>Purchases during the early-bird window go to an early-bird pool, shared among the early-bird palazzi when the window ends.</li>
-        <li>claim / claimMany pays all four tokens in one transaction. There is no cooldown and rewards never expire. If one token can&apos;t be transferred, it is skipped and stays claimable.</li>
+        <li>claim / claimMany pays both tokens in one transaction. There is no cooldown and rewards never expire. If one token can&apos;t be transferred, it is skipped and stays claimable.</li>
       </ul>
 
       <h3>7. Height</h3>

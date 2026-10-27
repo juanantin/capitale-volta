@@ -209,55 +209,6 @@ export function drawColosseum(g: Graphics) {
   g.ellipse(0, -h + 4, rx - 18, ry - 12).fill(0xe8c78f);
 }
 
-export function drawVesuvius(g: Graphics) {
-  g.ellipse(6, 4, 82, 26).fill({ color: 0x2f5d3a, alpha: 0.18 });
-  g.poly([-78, 0, -18, -78, 18, -78, 78, 0, 0, 22]).fill(0x9bb07e).stroke(OUTLINE);
-  g.poly([0, 22, 78, 0, 18, -78, 4, -78]).fill(0x7d9463);
-  g.poly([-78, 0, -18, -78, 18, -78, 78, 0, 0, 22]).stroke(OUTLINE);
-  // crater
-  g.ellipse(0, -78, 18, 6).fill(0x5d4a3d).stroke(OUTLINE);
-  g.ellipse(0, -77, 10, 3).fill(0xe0524f);
-  // lighter slope streaks
-  g.poly([-40, -38, -22, -70, -16, -70, -30, -36]).fill({ color: 0xffffff, alpha: 0.18 });
-  // little pizzeria at the foot
-  const p = districtPalette(2);
-  g.position.set(0, 0);
-  const px = 46;
-  const py = 10;
-  g.ellipse(px + 2, py + 2, 12, 5).fill({ color: 0x2f5d3a, alpha: 0.2 });
-  g.poly([px - 9, py, px, py + 4.5, px, py - 9.5, px - 9, py - 14]).fill(0xfff3d6).stroke(OUTLINE);
-  g.poly([px, py + 4.5, px + 9, py, px + 9, py - 14, px, py - 9.5]).fill(0xead9b0).stroke(OUTLINE);
-  g.poly([px - 10, py - 14, px, py - 9, px, py - 22]).fill(p.roof).stroke(OUTLINE);
-  g.poly([px, py - 9, px + 10, py - 14, px, py - 22]).fill(p.roofShade).stroke(OUTLINE);
-  // striped awning
-  for (let i = 0; i < 4; i++) {
-    g.poly([px - 9 + i * 2.25, py - 6 + i * 1.1, px - 6.75 + i * 2.25, py - 4.9 + i * 1.1, px - 6.75 + i * 2.25, py - 2.4 + i * 1.1, px - 9 + i * 2.25, py - 3.5 + i * 1.1]).fill(
-      i % 2 ? 0xffffff : 0xe0524f,
-    );
-  }
-  g.rect(px + 4, py - 24, 3, 7).fill(0xb0a49a).stroke({ width: 1, color: INK }); // oven chimney
-}
-
-export function drawCampanile(g: Graphics) {
-  const p: Palette = { ...districtPalette(3), lit: 0xe58a6e, shade: 0xc4664c, top: 0xf2b39e };
-  const a = 10;
-  shadow(g, a);
-  box(g, a, 0, 64, p, false);
-  // white stripes
-  for (const v of [16, 32, 48]) {
-    g.poly([-a, -v, 0, a / 2 - v, 0, a / 2 - v - 1.6, -a, -v - 1.6]).fill(0xfff3d6);
-    g.poly([0, a / 2 - v, a, -v, a, -v - 1.6, 0, a / 2 - v - 1.6]).fill(0xead9b0);
-  }
-  // belfry
-  box(g, a, 64, 12, { ...p, lit: 0xfff6e0, shade: 0xead9b0 }, false);
-  g.poly([-a + 3, -66 + 1.5, -3, -66 + 3.5, -3, -74 + 3.5, -a + 3, -74 + 1.5]).fill(0x5b4636);
-  topDiamond(g, a, -76, 0xfff6e0);
-  // green pyramid roof with golden angel
-  g.poly([-a, -76, 0, -76 + a / 2, 0, -100]).fill(0x6fcf97).stroke(OUTLINE);
-  g.poly([0, -76 + a / 2, a, -76, 0, -100]).fill(0x3a9c63).stroke(OUTLINE);
-  g.circle(0, -102, 2.4).fill(0xf2c94c).stroke({ width: 1, color: INK });
-}
-
 export function drawTree(g: Graphics, kind: number) {
   g.ellipse(2, 1, 6, 3).fill({ color: 0x2f5d3a, alpha: 0.18 });
   if (kind === 0) {

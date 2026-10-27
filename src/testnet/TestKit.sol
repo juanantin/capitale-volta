@@ -113,7 +113,7 @@ contract TestSwapAdapter is ISwapAdapter, Ownable {
 /// @notice Deploys every test stand-in in one transaction, with realistic starting prices.
 contract TestKit {
     TestToken public immutable capitale;
-    TestToken[4] public rewards;
+    TestToken[2] public rewards;
     TestOracle public immutable oracle;
     TestSwapAdapter public immutable adapter;
 
@@ -121,20 +121,16 @@ contract TestKit {
         capitale = new TestToken("Capitale (test)", "tCAPITALE", 18, 1_000_000e18);
         rewards[0] = new TestToken("Stockify (test)", "tSTFY", 18, 0);
         rewards[1] = new TestToken("Stonkex (test)", "tSTONKEX", 18, 0);
-        rewards[2] = new TestToken("DGuy (test)", "tDGUY", 18, 0);
-        rewards[3] = new TestToken("Temu (test)", "tTEMU", 18, 0);
         oracle = new TestOracle(address(this));
         oracle.setCapitale(0.001e18, 0.001e18); // $0.001
         oracle.setEthUsd(3000e18);
         oracle.setTokenUsd(address(rewards[0]), 0.42e18);
         oracle.setTokenUsd(address(rewards[1]), 3.1e18);
-        oracle.setTokenUsd(address(rewards[2]), 0.0061e18);
-        oracle.setTokenUsd(address(rewards[3]), 1.02e18);
         oracle.transferOwnership(msg.sender);
         adapter = new TestSwapAdapter(oracle, msg.sender);
     }
 
-    function rewardTokens() external view returns (TestToken[4] memory) {
+    function rewardTokens() external view returns (TestToken[2] memory) {
         return rewards;
     }
 }

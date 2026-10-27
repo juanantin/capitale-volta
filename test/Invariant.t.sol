@@ -14,7 +14,7 @@ contract Handler is Test {
     MockERC20 internal capitale;
     MockSwapAdapter internal adapter;
     address[3] internal users = [address(0xA11CE), address(0xB0B), address(0xCA401)];
-    uint256[4] public claimed;
+    uint256[2] public claimed;
 
     constructor(CapitaleNFT nft_, CapitaleVault vault_, MockERC20 capitale_, MockSwapAdapter adapter_) {
         nft = nft_;
@@ -31,7 +31,7 @@ contract Handler is Test {
     function buildOne(uint256 u, uint8 d, uint8 s) external {
         if (nft.totalResidents() >= 3000) return;
         vm.prank(users[u % 3]);
-        try nft.mint(d % 4, s % 3, 0, type(uint256).max) {} catch {}
+        try nft.mint(d % 2, s % 3, 0, type(uint256).max) {} catch {}
     }
 
     function pay(uint256 amt) external {
@@ -48,7 +48,7 @@ contract Handler is Test {
 
     function voteAll(uint256 u, uint8 t) external {
         vm.prank(users[u % 3]);
-        vault.voteAll(t % 4);
+        vault.voteAll(t % 2);
     }
 
     function claimAll(uint256 u) external {
@@ -65,13 +65,13 @@ contract Handler is Test {
             mstore(ids, k)
         }
         if (k == 0) return;
-        uint256[4] memory before;
-        for (uint256 t; t < 4; ++t) {
+        uint256[2] memory before;
+        for (uint256 t; t < 2; ++t) {
             before[t] = MockERC20(address(vault.tokens(t))).balanceOf(who);
         }
         vm.prank(who);
         vault.claimMany(ids);
-        for (uint256 t; t < 4; ++t) {
+        for (uint256 t; t < 2; ++t) {
             claimed[t] += MockERC20(address(vault.tokens(t))).balanceOf(who) - before[t];
         }
     }
@@ -107,7 +107,7 @@ contract InvariantTest is BaseTest {
     /// Reward tokens owed to buildings never exceed what the vault holds.
     function invariant_solvent() public view {
         uint256 n = nft.totalResidents();
-        for (uint8 t; t < 4; ++t) {
+        for (uint8 t; t < 2; ++t) {
             uint256 owed = vault.carry(t) + vault.streetPool(t) + vault.earlyBirdPool(t);
             for (uint256 id = 1; id <= n; ++id) {
                 owed += vault.pending(id, t);
@@ -118,7 +118,7 @@ contract InvariantTest is BaseTest {
 
     /// Everything bought is either still in the vault or was claimed by a building owner.
     function invariant_conservation() public view {
-        for (uint8 t; t < 4; ++t) {
+        for (uint8 t; t < 2; ++t) {
             assertEq(rewards[t].balanceOf(address(vault)) + handler.claimed(t), vault.totalBought(t));
         }
     }
@@ -140,12 +140,13 @@ contract InvariantTest is BaseTest {
     }
 
     function invariant_votesBounded() public view {
-        uint256[4] memory v = vault.votesOf(vault.week());
-        assertLe(v[0] + v[1] + v[2] + v[3], vault.residents());
+        uint256[] memory v = vault.votesOf(vault.week());
+        assertEq(v.length, 2);
+        assertLe(v[0] + v[1], vault.residents());
     }
 
     function invariant_mayorNeverEarns() public view {
-        for (uint8 t; t < 4; ++t) {
+        for (uint8 t; t < 2; ++t) {
             assertEq(vault.pending(0, t), 0);
         }
         assertEq(vault.claimedUsd(0), 0);

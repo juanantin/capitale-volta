@@ -128,12 +128,12 @@ contract CapitaleVaultBuyTest is BaseTest {
 
     function test_decimalsHandled() public {
         vm.prank(alice);
-        vault.vote(ids1(1), 3); // TEMU has 6 decimals
+        vault.vote(ids1(1), 1); // STONKEX (test copy) has 6 decimals
         vm.warp(FIRST_DEADLINE);
         payTax(0.2 ether);
         assertTrue(vault.requestBuy());
-        assertEq(rewards[3].balanceOf(address(vault)), fill(3, 0.17 ether));
-        assertEq(fill(3, 0.17 ether), 510e6); // 0.17 ETH * $3000 / $1
+        assertEq(rewards[1].balanceOf(address(vault)), fill(1, 0.17 ether));
+        assertEq(fill(1, 0.17 ether), 255e6); // 0.17 ETH * $3000 / $2
     }
 
     function test_schedulerIdleAfter24hAndRestartedByRequest() public {

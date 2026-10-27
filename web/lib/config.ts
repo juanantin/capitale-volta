@@ -1,13 +1,14 @@
-// Static facts about Capitale. Contract addresses are filled in after the testnet deploy.
+// Static facts about Capitale. Two districts: STOCKIFY (Milano) and STONKEX (Roma).
+// Contract addresses are filled in after the testnet deploy.
 
-export type DistrictId = 0 | 1 | 2 | 3;
+export type DistrictId = 0 | 1;
 
 export interface District {
   id: DistrictId;
   token: string;
   symbol: string;
   city: string;
-  place: "milano" | "roma" | "napoli" | "venezia";
+  place: "milano" | "roma";
   landmark: string;
   colour: string; // main colour
   light: string;
@@ -42,32 +43,6 @@ export const DISTRICTS: District[] = [
     dark: "#c96a1f",
     tokenAddress: "0x5ab000ff9B9FfE0349CE5ffA5fD86f217C3680F5",
     styles: ["Tempietto", "Villa Romana", "Fontana"],
-  },
-  {
-    id: 2,
-    token: "DGUY",
-    symbol: "DGUY",
-    city: "Napoli",
-    place: "napoli",
-    landmark: "Vesuvio",
-    colour: "#6fcf97",
-    light: "#bdeccf",
-    dark: "#3a9c63",
-    tokenAddress: "0xe34356dcd3d7bb991248f322e4ec31b5d60bc54e",
-    styles: ["Pizzeria", "Palazzo dei Quartieri", "Teatro"],
-  },
-  {
-    id: 3,
-    token: "TEMU",
-    symbol: "TEMU",
-    city: "Venezia",
-    place: "venezia",
-    landmark: "Campanile",
-    colour: "#56ccf2",
-    light: "#b5e9fa",
-    dark: "#2a93bd",
-    tokenAddress: "0x3c573bdd88008c94f025e5023212f28e5f39744c",
-    styles: ["Palazzo sul Canale", "Fornace di Murano", "Bottega delle Maschere"],
   },
 ];
 

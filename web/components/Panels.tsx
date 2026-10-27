@@ -218,7 +218,7 @@ export function MyPalazzoTab() {
           </button>
         </div>
       )}
-      <p className="muted small">One claim pays all four tokens. Claiming is what makes your building taller.</p>
+      <p className="muted small">One claim pays both tokens. Claiming is what makes your building taller.</p>
       <TxError error={error} />
       <div className="list">
         {mine.map((b) => {

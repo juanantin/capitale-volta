@@ -25,7 +25,8 @@ contract CapitaleNFT is ERC721Enumerable, ReentrancyGuard {
 
     address public constant DEAD = 0x000000000000000000000000000000000000dEaD;
     uint256 public constant MAX_BUILDINGS = 3000;
-    uint8 public constant DISTRICTS = 4;
+    /// Number of districts, fixed at deploy (Capitale: 2). District 0 STOCKIFY/Milano, 1 STONKEX/Roma.
+    uint8 public immutable districts;
     uint8 public constant STYLES = 3;
     uint256 public constant MAYOR_ID = 0;
 
@@ -71,12 +72,14 @@ contract CapitaleNFT is ERC721Enumerable, ReentrancyGuard {
     error VaultAlreadySet();
     error BadConfig();
 
-    constructor(IERC20 capitale_, ICapitalePricing pricing_, address mayorOwner)
+    constructor(IERC20 capitale_, ICapitalePricing pricing_, address mayorOwner, uint8 districts_)
         ERC721("Capitale", "PALAZZO")
     {
         if (address(capitale_) == address(0) || address(pricing_) == address(0) || mayorOwner == address(0)) {
             revert BadConfig();
         }
+        if (districts_ == 0 || districts_ > 4) revert BadConfig();
+        districts = districts_;
         capitale = capitale_;
         pricing = pricing_;
         deployer = msg.sender;
@@ -95,7 +98,7 @@ contract CapitaleNFT is ERC721Enumerable, ReentrancyGuard {
 
     // ─────────────────────────── Build ───────────────────────────
 
-    /// @param district  0 STOCKIFY/Milano, 1 STONKEX/Roma, 2 DGUY/Napoli, 3 TEMU/Venezia
+    /// @param district  0 STOCKIFY/Milano, 1 STONKEX/Roma (more only if deployed with more)
     /// @param style     0, 1 or 2
     /// @param inviter   inviting building number, 0 for none (cosmetic only)
     /// @param maxPrice  most $CAPITALE the builder accepts to burn
@@ -106,7 +109,7 @@ contract CapitaleNFT is ERC721Enumerable, ReentrancyGuard {
     {
         if (address(vault) == address(0)) revert VaultNotSet();
         if (totalResidents >= MAX_BUILDINGS) revert CityLocked();
-        if (district >= DISTRICTS) revert BadDistrict();
+        if (district >= districts) revert BadDistrict();
         if (style >= STYLES) revert BadStyle();
 
         id = totalResidents + 1;
@@ -233,21 +236,18 @@ contract CapitaleNFT is ERC721Enumerable, ReentrancyGuard {
     function _tokenName(uint8 d) internal pure returns (string memory) {
         if (d == 0) return "STOCKIFY";
         if (d == 1) return "STONKEX";
-        if (d == 2) return "DGUY";
-        return "TEMU";
+        return string.concat("DISTRICT ", (uint256(d) + 1).toString());
     }
 
     function _cityName(uint8 d) internal pure returns (string memory) {
         if (d == 0) return "Milano";
         if (d == 1) return "Roma";
-        if (d == 2) return "Napoli";
-        return "Venezia";
+        return "Capitale";
     }
 
     function _colour(uint8 d) internal pure returns (string memory) {
         if (d == 0) return "#f2c94c"; // gold
         if (d == 1) return "#f2994a"; // orange
-        if (d == 2) return "#6fcf97"; // green
-        return "#56ccf2"; // blue
+        return "#6fcf97"; // green (future districts)
     }
 }

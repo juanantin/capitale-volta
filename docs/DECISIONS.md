@@ -78,3 +78,14 @@ Change any of these by asking Claude; none is hard to revisit before deployment.
 - Test buy rules: min 0.001 ETH, max 0.01 ETH per order (real values come later).
 - Early bird can be shortened for a test (10 min / 1 h / 6 h) by starting the sale earlier.
 - The vault now takes its four swap routes in the constructor (no setAdapter calls at deploy).
+
+# Two districts (Juan, 27 Oct 2026)
+- Capitale has **two** districts: STOCKIFY (Milano, gold) and STONKEX (Roma, orange).
+  DGUY/Napoli and TEMU/Venezia are dropped everywhere (contracts, tests, website, test lab),
+  along with the Vesuvius and Campanile landmarks. This also removes the TEMU trademark risk.
+- The NFT and vault take the district count at deploy (1–4), so a future city could be added
+  in a new deployment without code changes. Capitale deploys with 2.
+- With two cities, the land splits by nearest city: Milano owns the north, Roma the centre,
+  the south, Sicily and Sardinia. The Mayor's palazzo stays in Tuscany, between them.
+- Votes are now STOCKIFY vs STONKEX; ties (more likely with two) keep the current token.
+- The earlier entries above that mention DGUY/TEMU or four tokens are superseded.

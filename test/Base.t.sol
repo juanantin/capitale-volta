@@ -31,28 +31,26 @@ abstract contract BaseTest is Test {
     address internal carol = makeAddr("carol");
 
     MockERC20 internal capitale;
-    MockERC20[4] internal rewards;
+    MockERC20[2] internal rewards;
     MockOracle internal oracle;
     MockSwapAdapter internal adapter;
     CapitalePricing internal pricing;
     CapitaleNFT internal nft;
     CapitaleVault internal vault;
 
-    uint256[4] internal tokenUsd = [uint256(0.5e18), 2e18, 0.01e18, 1e18];
+    uint256[2] internal tokenUsd = [uint256(0.5e18), 2e18];
 
     function setUp() public virtual {
         vm.warp(T0);
         capitale = new MockERC20("Capitale", "CAPITALE", 18);
         rewards[0] = new MockERC20("Stockify", "STFY", 18);
-        rewards[1] = new MockERC20("Stonkex", "STONKEX", 18);
-        rewards[2] = new MockERC20("DGuy", "DGUY", 18);
-        rewards[3] = new MockERC20("Temu", "TEMU", 6); // different decimals on purpose
+        rewards[1] = new MockERC20("Stonkex", "STONKEX", 6); // different decimals on purpose
 
         oracle = new MockOracle();
         oracle.setCapitale(CAP_PRICE, CAP_PRICE);
         oracle.setEthUsd(ETH_USD);
         adapter = new MockSwapAdapter();
-        for (uint256 i; i < 4; ++i) {
+        for (uint256 i; i < 2; ++i) {
             oracle.setTokenUsd(address(rewards[i]), tokenUsd[i]);
             adapter.setPrices(ETH_USD, address(rewards[i]), tokenUsd[i]);
         }
@@ -60,17 +58,19 @@ abstract contract BaseTest is Test {
         pricing = new CapitalePricing(
             admin, ICapitaleOracle(address(oracle)), START, 300, 40e18, [uint256(52e18), 68e18, 88e18, 120e18]
         );
-        nft = new CapitaleNFT(IERC20(address(capitale)), ICapitalePricing(address(pricing)), mayor);
-        IERC20[4] memory toks;
-        for (uint256 i; i < 4; ++i) {
+        nft = new CapitaleNFT(IERC20(address(capitale)), ICapitalePricing(address(pricing)), mayor, 2);
+        IERC20[] memory toks = new IERC20[](2);
+        ISwapAdapter[] memory routes = new ISwapAdapter[](2);
+        for (uint256 i; i < 2; ++i) {
             toks[i] = IERC20(address(rewards[i]));
+            routes[i] = adapter;
         }
         vault = new CapitaleVault(
             admin,
             ICapitaleNFTView(address(nft)),
             pricing.earlyBirdEnd(),
             toks,
-            [ISwapAdapter(address(adapter)), adapter, adapter, adapter],
+            routes,
             ICapitaleOracle(address(oracle)),
             opsSafe,
             IWETH(address(0)),
