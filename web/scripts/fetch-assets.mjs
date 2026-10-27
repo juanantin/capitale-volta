@@ -11,9 +11,9 @@ const OUT = new URL("../public/sprites/", import.meta.url);
 const manifest = JSON.parse(readFileSync(new URL("../lib/assets-manifest.json", import.meta.url), "utf8"));
 
 const jobs = [];
-// Capitale has two districts: STOCKIFY (Milano) and STONKEX (Roma).
-manifest.districts_active.slice(0, 2).forEach((d, i) => jobs.push({ key: `landmark_${i}`, url: d.url, whiteBg: true }));
-const styleGroups = ["STOCKIFY_Milano", "STONKEX_Roma"];
+// Four cities: Milano, Roma, Napoli, Venezia (art groups are still named after the old tokens).
+manifest.districts_active.forEach((d, i) => jobs.push({ key: `landmark_${i}`, url: d.url, whiteBg: true }));
+const styleGroups = ["STOCKIFY_Milano", "STONKEX_Roma", "DGUY_Napoli", "TEMU_Venezia"];
 styleGroups.forEach((g, d) =>
   (manifest.building_styles[g] ?? []).forEach((s) => jobs.push({ key: `style_${d}_${s.style}`, url: s.url, whiteBg: true })),
 );

@@ -5,6 +5,7 @@ import { parseEther, type Address } from "viem";
 import { getWalletClient, switchChain } from "@wagmi/core";
 import { nftAbi, pricingAbi, testKitAbi, vaultAbi } from "./abis";
 import { CHAIN, publicClient, wagmiConfig } from "./wagmi";
+import { DISTRICTS } from "./config";
 
 export const DEPLOY_STEPS = [
   "Test tokens, price feed and swap (TestKit)",
@@ -60,7 +61,7 @@ export async function deployTestCity(opts: DeployOptions, onStep: (i: number) =>
   const pricing = await deploy(pricingAbi, pricingBytecode, [me, oracle, BigInt(start), 300n, parseEther("40"), [parseEther("52"), parseEther("68"), parseEther("88"), parseEther("120")]]);
 
   onStep(2);
-  const nft = await deploy(nftAbi, nftBytecode, [capitale, pricing, me, rewards.length]);
+  const nft = await deploy(nftAbi, nftBytecode, [capitale, pricing, me, DISTRICTS.length]);
 
   onStep(3);
   const vault = await deploy(vaultAbi, vaultBytecode, [
@@ -69,6 +70,7 @@ export async function deployTestCity(opts: DeployOptions, onStep: (i: number) =>
     BigInt(start + 6 * 3600),
     rewards,
     rewards.map(() => adapter),
+    DISTRICTS.length, // 4 cities, all earning the 2 test reward tokens
     oracle,
     me,
     "0x0000000000000000000000000000000000000000",

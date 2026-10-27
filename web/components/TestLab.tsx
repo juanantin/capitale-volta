@@ -6,7 +6,7 @@ import { useAccount, useChainId, useConnect, useSwitchChain } from "wagmi";
 import { chainError, connectCity, describeError, rememberCity, savedCity, testActions } from "../lib/chain";
 import { DEPLOY_STEPS, deployTestCity } from "../lib/deploy";
 import { CHAIN, EXPLORER } from "../lib/wagmi";
-import { DISTRICTS } from "../lib/config";
+import { TOKENS } from "../lib/config";
 import { formatCountdown } from "../lib/romeTime";
 import { setMode, useCity } from "../lib/store";
 import { short } from "./WalletButton";
@@ -135,7 +135,7 @@ export default function TestLab() {
             <div><span className="muted">Your test $CAPITALE</span><b>{Math.floor(city.capitaleBalance).toLocaleString()}</b></div>
             <div><span className="muted">Early bird</span><b>{c.isEarlyBird ? `ends in ${formatCountdown(ebLeft)}` : c.earlyBirdFinalized ? "over, paid out" : "over"}</b></div>
             <div><span className="muted">ETH waiting to buy</span><b>{pendingEth.toFixed(4)}</b></div>
-            <div><span className="muted">This week buys</span><b>{DISTRICTS[city.currentToken].token}</b></div>
+            <div><span className="muted">This week buys</span><b>{TOKENS[city.currentToken].token}</b></div>
           </div>
           <div className="lab-actions">
             <button className="btn" disabled={!!busy} onClick={() => act("faucet", testActions.faucet)}>{busy === "faucet" ? "…" : "🎁 Get 1,000,000 test $CAPITALE"}</button>

@@ -89,3 +89,16 @@ Change any of these by asking Claude; none is hard to revisit before deployment.
   the south, Sicily and Sardinia. The Mayor's palazzo stays in Tuscany, between them.
 - Votes are now STOCKIFY vs STONKEX; ties (more likely with two) keep the current token.
 - The earlier entries above that mention DGUY/TEMU or four tokens are superseded.
+
+# Four cities, two tokens (Juan, 27 Oct 2026; replaces "Two districts" above)
+- Four cities are back: Milano, Roma, Napoli, Venezia (with Vesuvius and the Campanile).
+- Only two reward tokens: STOCKIFY and STONKEX. **Every city earns both**: the weekly vote
+  picks which token the vault buys, and the residents' 70% is shared by all buildings in
+  all cities. DGUY and TEMU stay dropped (no TEMU trademark risk).
+- Cities and tokens are now independent in the vault: `districts` (cities, 4) and
+  `tokenCount` (reward tokens, 2), both fixed at deploy. `votesOf` returns one entry per
+  token; `newBuildsOf` one per city.
+- The street race is between the four cities; the winning city's buildings share the 15%
+  street pool, paid in that week's token.
+- Map banners show the city (big) and its palazzi count; the street-race leader gets a
+  "LEADING" tag. Token colours: STOCKIFY purple, STONKEX pink.

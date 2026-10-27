@@ -25,7 +25,8 @@ contract CapitaleNFT is ERC721Enumerable, ReentrancyGuard {
 
     address public constant DEAD = 0x000000000000000000000000000000000000dEaD;
     uint256 public constant MAX_BUILDINGS = 3000;
-    /// Number of districts, fixed at deploy (Capitale: 2). District 0 STOCKIFY/Milano, 1 STONKEX/Roma.
+    /// Number of districts (cities), fixed at deploy. Capitale: 0 Milano, 1 Roma, 2 Napoli, 3 Venezia.
+    /// Every city earns the same reward tokens; the city sets the plot and the street race.
     uint8 public immutable districts;
     uint8 public constant STYLES = 3;
     uint256 public constant MAYOR_ID = 0;
@@ -98,7 +99,7 @@ contract CapitaleNFT is ERC721Enumerable, ReentrancyGuard {
 
     // ─────────────────────────── Build ───────────────────────────
 
-    /// @param district  0 STOCKIFY/Milano, 1 STONKEX/Roma (more only if deployed with more)
+    /// @param district  0 Milano, 1 Roma, 2 Napoli, 3 Venezia
     /// @param style     0, 1 or 2
     /// @param inviter   inviting building number, 0 for none (cosmetic only)
     /// @param maxPrice  most $CAPITALE the builder accepts to burn
@@ -167,13 +168,10 @@ contract CapitaleNFT is ERC721Enumerable, ReentrancyGuard {
         Building memory b = _buildings[id];
         bool mayor = id == MAYOR_ID;
         uint256 level = mayor || address(vault) == address(0) ? 1 : vault.levelOf(id);
-        string memory district = mayor ? "Centro" : _tokenName(b.district);
-        string memory city = mayor ? "Palazzo del Sindaco" : _cityName(b.district);
+        string memory city = mayor ? "Centro" : _cityName(b.district);
 
         string memory attrs = string.concat(
-            '[{"trait_type":"District","value":"',
-            district,
-            '"},{"trait_type":"City","value":"',
+            '[{"trait_type":"City","value":"',
             city,
             '"},{"trait_type":"Style","value":"',
             mayor ? "Mayor" : uint256(b.style).toString(),
@@ -224,30 +222,25 @@ contract CapitaleNFT is ERC721Enumerable, ReentrancyGuard {
             '<ellipse cx="180" cy="275" rx="140" ry="40" fill="#f3dfa2"/><ellipse cx="180" cy="270" rx="125" ry="32" fill="#a8dd8f"/>',
             stack,
             '<text x="180" y="44" text-anchor="middle" font-family="sans-serif" font-size="30" font-weight="bold" fill="#3c2f2f">',
-            mayor ? "IL SINDACO" : _tokenName(b.district),
+            mayor ? "IL SINDACO" : _cityName(b.district),
             '</text><text x="180" y="72" text-anchor="middle" font-family="sans-serif" font-size="18" fill="#3c2f2f">',
-            mayor ? "Capitale" : _cityName(b.district),
-            " #",
+            "Capitale #",
             id.toString(),
             "</text></svg>"
         );
     }
 
-    function _tokenName(uint8 d) internal pure returns (string memory) {
-        if (d == 0) return "STOCKIFY";
-        if (d == 1) return "STONKEX";
-        return string.concat("DISTRICT ", (uint256(d) + 1).toString());
-    }
-
     function _cityName(uint8 d) internal pure returns (string memory) {
         if (d == 0) return "Milano";
         if (d == 1) return "Roma";
-        return "Capitale";
+        if (d == 2) return "Napoli";
+        return "Venezia";
     }
 
     function _colour(uint8 d) internal pure returns (string memory) {
         if (d == 0) return "#f2c94c"; // gold
         if (d == 1) return "#f2994a"; // orange
-        return "#6fcf97"; // green (future districts)
+        if (d == 2) return "#6fcf97"; // green
+        return "#56ccf2"; // blue
     }
 }

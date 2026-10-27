@@ -1,5 +1,5 @@
 // Building plots on the map. Land is the real Italy outline; each district owns the land
-// closest to its city (Milano owns the north, Roma the centre, south and islands). Inside a district, plot 0 is the one
+// closest to its city (Milano, Roma, Napoli, Venezia). Inside a district, plot 0 is the one
 // closest to the city centre and later plots spiral outwards, matching the NFT's plot number.
 
 import italy from "./italy.json";
@@ -18,7 +18,7 @@ const P = italy.places as unknown as Record<string, Pt>;
 export const PLACES: Record<string, Pt> = Object.fromEntries(
   Object.entries(P).map(([k, [x, y]]) => [k, [x, y * TILT] as Pt]),
 );
-export const DISTRICT_PLACES = ["milano", "roma"] as const;
+export const DISTRICT_PLACES = ["milano", "roma", "napoli", "venezia"] as const;
 
 function inRing(x: number, y: number, ring: Pt[]): boolean {
   let inside = false;

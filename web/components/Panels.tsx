@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { DISTRICTS, DistrictId, EARLY_BIRD_UNITS, MAX_BUILDINGS, TIERS, levelForUsd, usdForNextLevel } from "../lib/config";
+import { DISTRICTS, DistrictId, EARLY_BIRD_UNITS, MAX_BUILDINGS, TIERS, TOKENS, levelForUsd, usdForNextLevel } from "../lib/config";
 import { formatCountdown } from "../lib/romeTime";
 import { approve, buildMine, claim, focus, getCity, quoteBuild, useCity, vote } from "../lib/store";
 import { describeError, testActions } from "../lib/chain";
@@ -103,17 +103,17 @@ export function BuildTab() {
         </div>
       </div>
 
-      <h3><span className="step">1</span> Choose a district</h3>
+      <h3><span className="step">1</span> Choose a city</h3>
       <div className="district-grid">
         {DISTRICTS.map((d) => (
           <button key={d.id} className={`district-btn ${district === d.id ? "on" : ""}`} style={{ ["--c" as string]: d.colour, ["--cl" as string]: d.light }} onClick={() => { setDistrict(d.id); setStyle(null); }}>
-            <span className="dt">{d.token}</span>
-            <span className="dc">{d.city}</span>
-            <span className="dn">{fmt(city.districtCount[d.id])} built</span>
-            {city.currentToken === d.id && <span className="tag">THIS WEEK</span>}
+            <span className="dt">{d.city}</span>
+            <span className="dc">{d.landmark}</span>
+            <span className="dn">{fmt(city.districtCount[d.id] ?? 0)} built · {city.newBuilds[d.id] ?? 0} this week</span>
           </button>
         ))}
       </div>
+      <p className="muted small">Every city earns the same rewards in {TOKENS.map((t) => t.token).join(" and ")}. Your city decides where your palazzo stands and which team you&apos;re on in the weekly street race.</p>
 
       {district !== null && (
         <>
@@ -233,7 +233,7 @@ export function MyPalazzoTab() {
                 <span className="lvl">L{lvl}</span>
                 <span>
                   <b>#{b.id}</b> {D.city} · {D.styles[b.style]}
-                  <span className="muted small block">{D.token} district · plot {b.plot + 1}</span>
+                  <span className="muted small block">{D.city} plot {b.plot + 1}</span>
                 </span>
               </button>
               <div className="bar"><i style={{ width: `${pct}%` }} /></div>
@@ -272,13 +272,13 @@ export function TownHallTab() {
       </div>
       <p>Each building has one vote per week. The token with the most votes is bought all next week. A tie or no votes keeps the current token.</p>
       <div className="votes">
-        {DISTRICTS.map((d) => {
-          const v = city.votes[d.id];
+        {TOKENS.map((d) => {
+          const v = city.votes[d.id] ?? 0;
           const pct = total ? (v / total) * 100 : 0;
           return (
             <div key={d.id} className="vote-row" style={{ ["--c" as string]: d.colour }}>
               <div className="vote-label">
-                <b>{d.token}</b> <span className="muted small">{d.city}</span>
+                <b>{d.token}</b> <span className="muted small">{d.symbol}</span>
                 {city.currentToken === d.id && <span className="tag">THIS WEEK</span>}
                 {v === max && v > 0 && leaders === 1 && <span className="tag lead">LEADING</span>}
               </div>
@@ -307,12 +307,12 @@ export function RankingsTab() {
   return (
     <div className="tab">
       <h3>Street competition · this week</h3>
-      <p className="muted small">The district with the most new buildings wins this week&apos;s 15% street pool, shared by all its buildings. Ends in {formatCountdown(city.weekEnd - now)}.</p>
+      <p className="muted small">The city with the most new buildings wins this week&apos;s 15% street pool (paid in this week&apos;s token), shared by all its buildings. Ends in {formatCountdown(city.weekEnd - now)}.</p>
       <div className="votes">
         {DISTRICTS.map((d) => (
           <div key={d.id} className="vote-row" style={{ ["--c" as string]: d.colour }}>
             <div className="vote-label">
-              <b>{d.city}</b> <span className="muted small">{d.token}</span>
+              <b>{d.city}</b> <span className="muted small">{d.landmark}</span>
               {city.newBuilds[d.id] === max && <span className="tag lead">👑 LEADING</span>}
             </div>
             <div className="bar big"><i style={{ width: `${(city.newBuilds[d.id] / max) * 100}%` }} /><span>{city.newBuilds[d.id]} new</span></div>
@@ -383,7 +383,7 @@ export function TreasuryTab() {
       <h3>Holdings</h3>
       <table className="table">
         <tbody>
-          {DISTRICTS.map((d) => (
+          {TOKENS.map((d) => (
             <tr key={d.id}>
               <td><span className="dot" style={{ background: d.colour }} /> {d.token}</td>
               <td className="num">{fmt(city.holdings[d.id], city.holdings[d.id] < 10_000 ? 2 : 0)}</td>
@@ -398,7 +398,7 @@ export function TreasuryTab() {
           {city.purchases.slice(0, 10).map((p, i) => (
             <tr key={i}>
               <td className="muted small">{Math.max(1, Math.round((now - p.at) / 60))} min ago</td>
-              <td>{DISTRICTS[p.token].token}</td>
+              <td>{TOKENS[p.token].token}</td>
               <td className="num">{fmt(p.eth, 3)} ETH</td>
               <td className="num muted">{usd(p.usd)}</td>
             </tr>

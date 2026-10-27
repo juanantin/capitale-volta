@@ -5,7 +5,7 @@ import { formatEther, formatUnits, parseEventLogs, type Address } from "viem";
 import { getWalletClient, switchChain } from "@wagmi/core";
 import { nftAbi, pricingAbi, testAdapterAbi, testOracleAbi, testTokenAbi, vaultAbi } from "./abis";
 import { CHAIN, publicClient, wagmiConfig } from "./wagmi";
-import { DISTRICTS, type DistrictId } from "./config";
+import { TOKENS, type DistrictId, type TokenId } from "./config";
 import { getCity, registerChain, setChainState, type Building, type ChainInfo, type Purchase } from "./store";
 
 const MAX = 2n ** 256n - 1n;
@@ -19,6 +19,7 @@ export interface CityAddresses {
   oracle: Address;
   adapter: Address;
   tokens: Address[];
+  districts: number;
 }
 
 // ─────────── where the test city lives ───────────
@@ -53,7 +54,10 @@ export function rememberCity(vault: Address | null) {
 
 export async function resolveAddresses(vault: Address): Promise<CityAddresses> {
   const v = { address: vault, abi: vaultAbi } as const;
-  const n0 = Number(await publicClient.readContract({ ...v, functionName: "districts" }));
+  const [n0, cities] = (await Promise.all([
+    publicClient.readContract({ ...v, functionName: "tokenCount" }),
+    publicClient.readContract({ ...v, functionName: "districts" }),
+  ])).map(Number);
   const [nft, oracle, adapter, ...tokens] = await Promise.all([
     publicClient.readContract({ ...v, functionName: "nft" }),
     publicClient.readContract({ ...v, functionName: "oracle" }),
@@ -73,6 +77,7 @@ export async function resolveAddresses(vault: Address): Promise<CityAddresses> {
     oracle: oracle as Address,
     adapter: adapter as Address,
     tokens: tokens as Address[],
+    districts: cities,
   };
 }
 
@@ -187,7 +192,7 @@ async function readCity(a: CityAddresses, me: Address | null) {
       builtAt: st.builtAt,
     };
   });
-  const districtCount = a.tokens.map(() => 0);
+  const districtCount = Array.from({ length: a.districts }, () => 0);
   for (const b of buildings) districtCount[b.district]++;
 
   // Recent purchases from events (public nodes limit how far back logs can go).
@@ -196,7 +201,7 @@ async function readCity(a: CityAddresses, me: Address | null) {
     const logs = await publicClient.getContractEvents({ address: a.vault, abi: vaultAbi, eventName: "Bought", fromBlock: block.number > 9000n ? block.number - 9000n : 0n });
     purchases = logs.reverse().slice(0, 30).map((l) => {
       const args = l.args as { token: number; ethIn: bigint; tokensOut: bigint; usd: bigint };
-      return { at: Number(block.timestamp) - Number(block.number - (l.blockNumber ?? block.number)) * 2, token: args.token as DistrictId, eth: num(args.ethIn), tokens: num(args.tokensOut), usd: num(args.usd) };
+      return { at: Number(block.timestamp) - Number(block.number - (l.blockNumber ?? block.number)) * 2, token: args.token as TokenId, eth: num(args.ethIn), tokens: num(args.tokensOut), usd: num(args.usd) };
     });
   } catch {
     /* logs unavailable */
@@ -231,7 +236,7 @@ async function readCity(a: CityAddresses, me: Address | null) {
     districtCount,
     week: Number(week),
     weekEnd: Number(weekEnd),
-    currentToken: currentToken as DistrictId,
+    currentToken: currentToken as TokenId,
     votes: votes.map(Number),
     newBuilds: newBuilds.map(Number),
     totalTaxEth: num(totalTax),
@@ -375,5 +380,5 @@ export function describeError(e: unknown): string {
   return custom ? custom[1] : m.split("\n")[0];
 }
 
-export const tokenLabel = (t: number) => DISTRICTS[t].token;
+export const tokenLabel = (t: number) => TOKENS[t].token;
 export { formatEther };

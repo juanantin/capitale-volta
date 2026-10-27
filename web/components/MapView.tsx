@@ -23,7 +23,7 @@ export default function MapView() {
       if (!el) return;
       const [x, y] = sc.worldToScreen(PLACES[k]);
       // just above each landmark
-      const lift = k === "mayor" ? 210 : k === "roma" ? 130 : 200;
+      const lift = k === "napoli" ? 250 : k === "venezia" ? 330 : k === "mayor" ? 210 : k === "roma" ? 130 : 200;
       const s = Math.max(0.55, Math.min(1.15, sc.scale * 2.4));
       el.style.transform = `translate(${x}px, ${y - lift * sc.scale}px) translate(-50%, -100%) scale(${s})`;
     });
@@ -73,6 +73,9 @@ export default function MapView() {
     sc.sync(city.buildings, true);
   }, [city.buildings, city.mode, ready]);
 
+  // The city winning this week's street race (most new buildings; none on a tie).
+  const top = Math.max(0, ...city.newBuilds);
+  const leader = top > 0 && city.newBuilds.filter((n) => n === top).length === 1 ? city.newBuilds.indexOf(top) : -1;
   const sel = selected ? city.buildings[selected - 1] : null;
   const d = sel ? DISTRICTS[sel.district] : null;
 
@@ -81,10 +84,10 @@ export default function MapView() {
       <div ref={host} className="map-canvas" />
       <div className="map-overlay">
         {DISTRICTS.map((D, i) => (
-          <div key={D.token} ref={(el) => { banners.current[i] = el; }} className="banner" style={{ ["--c" as string]: D.colour, ["--cd" as string]: D.dark }}>
-            {city.currentToken === D.id && <span className="this-week">THIS WEEK</span>}
-            <span className="banner-token">{D.token}</span>
-            <span className="banner-city">{D.city}</span>
+          <div key={D.city} ref={(el) => { banners.current[i] = el; }} className="banner" style={{ ["--c" as string]: D.colour, ["--cd" as string]: D.dark }}>
+            {leader === D.id && <span className="this-week">👑 LEADING</span>}
+            <span className="banner-token">{D.city.toUpperCase()}</span>
+            <span className="banner-city">{city.districtCount[D.id]?.toLocaleString() ?? 0} palazzi</span>
           </div>
         ))}
         <div ref={(el) => { banners.current[DISTRICTS.length] = el; }} className="banner mayor-banner">

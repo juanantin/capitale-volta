@@ -1,49 +1,42 @@
-// Static facts about Capitale. Two districts: STOCKIFY (Milano) and STONKEX (Roma).
+// Static facts about Capitale: four cities, two reward tokens (STOCKIFY and STONKEX).
 // Contract addresses are filled in after the testnet deploy.
 
-export type DistrictId = 0 | 1;
+/** A city on the map. Cities set a building's plot and its team in the weekly street race;
+ *  every city earns the same reward tokens. */
+export type DistrictId = 0 | 1 | 2 | 3;
 
 export interface District {
   id: DistrictId;
-  token: string;
-  symbol: string;
   city: string;
-  place: "milano" | "roma";
+  place: "milano" | "roma" | "napoli" | "venezia";
   landmark: string;
   colour: string; // main colour
   light: string;
   dark: string;
-  tokenAddress: `0x${string}`;
   styles: [string, string, string];
 }
 
 export const DISTRICTS: District[] = [
-  {
-    id: 0,
-    token: "STOCKIFY",
-    symbol: "STFY",
-    city: "Milano",
-    place: "milano",
-    landmark: "Duomo",
-    colour: "#f2c94c",
-    light: "#fbe9a6",
-    dark: "#c99a1f",
-    tokenAddress: "0xC6405D7a226e1C18E559Be2F335F74C01Ad07bF5",
-    styles: ["Torre della Borsa", "Atelier", "Bosco Verticale"],
-  },
-  {
-    id: 1,
-    token: "STONKEX",
-    symbol: "STONKEX",
-    city: "Roma",
-    place: "roma",
-    landmark: "Colosseo",
-    colour: "#f2994a",
-    light: "#fbcfa6",
-    dark: "#c96a1f",
-    tokenAddress: "0x5ab000ff9B9FfE0349CE5ffA5fD86f217C3680F5",
-    styles: ["Tempietto", "Villa Romana", "Fontana"],
-  },
+  { id: 0, city: "Milano", place: "milano", landmark: "Duomo", colour: "#f2c94c", light: "#fbe9a6", dark: "#c99a1f", styles: ["Torre della Borsa", "Atelier", "Bosco Verticale"] },
+  { id: 1, city: "Roma", place: "roma", landmark: "Colosseo", colour: "#f2994a", light: "#fbcfa6", dark: "#c96a1f", styles: ["Tempietto", "Villa Romana", "Fontana"] },
+  { id: 2, city: "Napoli", place: "napoli", landmark: "Vesuvio", colour: "#6fcf97", light: "#bdeccf", dark: "#3a9c63", styles: ["Pizzeria", "Palazzo dei Quartieri", "Teatro"] },
+  { id: 3, city: "Venezia", place: "venezia", landmark: "Campanile", colour: "#56ccf2", light: "#b5e9fa", dark: "#2a93bd", styles: ["Palazzo sul Canale", "Fornace di Murano", "Bottega delle Maschere"] },
+];
+
+/** A reward token. The weekly vote picks which one the vault buys for every building. */
+export type TokenId = 0 | 1;
+
+export interface RewardToken {
+  id: TokenId;
+  token: string;
+  symbol: string;
+  colour: string;
+  tokenAddress: `0x${string}`;
+}
+
+export const TOKENS: RewardToken[] = [
+  { id: 0, token: "STOCKIFY", symbol: "STFY", colour: "#b98cf2", tokenAddress: "0xC6405D7a226e1C18E559Be2F335F74C01Ad07bF5" },
+  { id: 1, token: "STONKEX", symbol: "STONKEX", colour: "#ff7eb6", tokenAddress: "0x5ab000ff9B9FfE0349CE5ffA5fD86f217C3680F5" },
 ];
 
 export const MAX_BUILDINGS = 3000;

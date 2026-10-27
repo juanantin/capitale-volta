@@ -58,7 +58,7 @@ abstract contract BaseTest is Test {
         pricing = new CapitalePricing(
             admin, ICapitaleOracle(address(oracle)), START, 300, 40e18, [uint256(52e18), 68e18, 88e18, 120e18]
         );
-        nft = new CapitaleNFT(IERC20(address(capitale)), ICapitalePricing(address(pricing)), mayor, 2);
+        nft = new CapitaleNFT(IERC20(address(capitale)), ICapitalePricing(address(pricing)), mayor, 4);
         IERC20[] memory toks = new IERC20[](2);
         ISwapAdapter[] memory routes = new ISwapAdapter[](2);
         for (uint256 i; i < 2; ++i) {
@@ -71,6 +71,7 @@ abstract contract BaseTest is Test {
             pricing.earlyBirdEnd(),
             toks,
             routes,
+            4, // cities: Milano, Roma, Napoli, Venezia
             ICapitaleOracle(address(oracle)),
             opsSafe,
             IWETH(address(0)),

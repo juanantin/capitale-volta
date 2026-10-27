@@ -12,6 +12,8 @@ import {
   drawGondola,
   drawMayor,
   drawTree,
+  drawVesuvius,
+  drawCampanile,
   drawCottage,
   floorsForLevel,
   districtPalette,
@@ -296,7 +298,11 @@ export class CityScene {
     };
     mk("duomo", drawDuomo, PLACES.milano, "landmark_0", 110);
     mk("colosseum", drawColosseum, PLACES.roma, "landmark_1", 110);
+    const [vx, vy] = PLACES.napoli;
+    mk("vesuvius", drawVesuvius, [vx + 30, vy + 20], "landmark_2", 150);
+    mk("campanile", drawCampanile, PLACES.venezia, "landmark_3", 90);
     mk("mayor", drawMayor, PLACES.mayor, "mayor", 80);
+    if (!this.realTexture("landmark_2")) this.emitters.push({ p: [vx + 30, vy + 20 - 78 * LANDMARK_SCALE], rate: 2.2, acc: 0, big: true });
   }
 
   /** Fill every empty bit of land with countryside: cottages, cypresses and olive trees.

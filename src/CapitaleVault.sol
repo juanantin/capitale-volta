@@ -55,15 +55,19 @@ contract CapitaleVault is ICapitaleVault, Ownable2Step, ReentrancyGuard {
     uint256 public constant MAX_BUILDINGS = 3000;
     uint256 public constant IDLE_AFTER = 24 hours;
     uint256 public constant MAX_WEEKS_PER_SETTLE = 52;
-    /// Storage is sized for up to this many districts; `districts` says how many are live.
+    /// Storage is sized for up to this many districts (cities) and reward tokens.
     uint8 public constant MAX_DISTRICTS = 4;
+    uint8 public constant MAX_TOKENS = 4;
 
     ICapitaleNFTView public immutable nft;
     uint256 public immutable earlyBirdEnd;
     IWETH public immutable weth;
-    /// Number of districts, fixed at deploy (Capitale: 2, STOCKIFY/Milano and STONKEX/Roma).
-    /// District i is bought and rewarded in tokens[i].
+    /// Number of districts (cities), fixed at deploy. Capitale: 4 (Milano, Roma, Napoli, Venezia).
+    /// Cities only matter for plots and the weekly street competition.
     uint8 public immutable districts;
+    /// Number of reward tokens, fixed at deploy. Capitale: 2 (STOCKIFY, STONKEX). The weekly
+    /// vote picks which one is bought; every building in every city earns it.
+    uint8 public immutable tokenCount;
     IERC20[4] public tokens;
     uint8[4] public tokenDecimals;
 
@@ -177,6 +181,7 @@ contract CapitaleVault is ICapitaleVault, Ownable2Step, ReentrancyGuard {
         uint256 earlyBirdEnd_,
         IERC20[] memory tokens_,
         ISwapAdapter[] memory adapters_,
+        uint8 districts_,
         ICapitaleOracle oracle_,
         address ops_,
         IWETH weth_,
@@ -185,9 +190,11 @@ contract CapitaleVault is ICapitaleVault, Ownable2Step, ReentrancyGuard {
     ) Ownable(owner_) {
         if (address(nft_) == address(0) || address(oracle_) == address(0) || ops_ == address(0)) revert BadConfig();
         uint256 n = tokens_.length;
-        if (n == 0 || n > MAX_DISTRICTS || adapters_.length != n) revert BadConfig();
+        if (n == 0 || n > MAX_TOKENS || adapters_.length != n) revert BadConfig();
+        if (districts_ == 0 || districts_ > MAX_DISTRICTS) revert BadConfig();
         if (initialToken >= n) revert BadToken();
-        districts = uint8(n);
+        tokenCount = uint8(n);
+        districts = districts_;
         nft = nft_;
         earlyBirdEnd = earlyBirdEnd_;
         weth = weth_;
@@ -244,7 +251,7 @@ contract CapitaleVault is ICapitaleVault, Ownable2Step, ReentrancyGuard {
     function _finalizeEarlyBird() internal {
         earlyBirdFinalized = true;
         uint256 n = earlyBirdCount;
-        for (uint8 t; t < districts; ++t) {
+        for (uint8 t; t < tokenCount; ++t) {
             uint256 amt = earlyBirdPool[t];
             if (amt == 0) continue;
             uint256 usd = earlyBirdPoolUsd[t];
@@ -269,7 +276,7 @@ contract CapitaleVault is ICapitaleVault, Ownable2Step, ReentrancyGuard {
         uint256 best;
         uint8 bestIdx;
         bool tie;
-        for (uint8 i; i < districts; ++i) {
+        for (uint8 i; i < tokenCount; ++i) {
             if (v[i] > best) {
                 best = v[i];
                 bestIdx = i;
@@ -280,7 +287,7 @@ contract CapitaleVault is ICapitaleVault, Ownable2Step, ReentrancyGuard {
         }
         if (best > 0 && !tie) currentToken = bestIdx;
 
-        for (uint8 t; t < districts; ++t) {
+        for (uint8 t; t < tokenCount; ++t) {
             if (streetPool[t] != 0) _distributeStreet(w, t);
         }
 
@@ -368,7 +375,7 @@ contract CapitaleVault is ICapitaleVault, Ownable2Step, ReentrancyGuard {
         _newBuilds[week][district] += 1;
         if (earlyBird) earlyBirdCount += 1;
         // A new building only earns from purchases made after it exists.
-        for (uint8 t; t < districts; ++t) {
+        for (uint8 t; t < tokenCount; ++t) {
             (_debt[id][t], _debtUsd[id][t]) = _entitlement(id, t);
         }
     }
@@ -484,7 +491,7 @@ contract CapitaleVault is ICapitaleVault, Ownable2Step, ReentrancyGuard {
 
     /// @notice One vote per building per week for next week's token (0-3). Mayor cannot vote.
     function vote(uint256[] calldata ids, uint8 token) external nonReentrant {
-        if (token >= districts) revert BadToken();
+        if (token >= tokenCount) revert BadToken();
         _settle();
         uint256 w = week;
         for (uint256 i; i < ids.length; ++i) {
@@ -495,7 +502,7 @@ contract CapitaleVault is ICapitaleVault, Ownable2Step, ReentrancyGuard {
 
     /// @notice Vote with every building the caller owns that has not voted this week.
     function voteAll(uint8 token) external nonReentrant returns (uint256 n) {
-        if (token >= districts) revert BadToken();
+        if (token >= tokenCount) revert BadToken();
         _settle();
         uint256 w = week;
         uint256 bal = nft.balanceOf(msg.sender);
@@ -537,7 +544,7 @@ contract CapitaleVault is ICapitaleVault, Ownable2Step, ReentrancyGuard {
             if (ids[j] == 0) revert MayorExcluded();
             if (nft.ownerOf(ids[j]) != msg.sender) revert NotBuildingOwner(ids[j]);
         }
-        for (uint8 t; t < districts; ++t) {
+        for (uint8 t; t < tokenCount; ++t) {
             uint256 total;
             for (uint256 j; j < ids.length; ++j) {
                 (uint256 owed,) = _owed(ids[j], t);
@@ -585,15 +592,15 @@ contract CapitaleVault is ICapitaleVault, Ownable2Step, ReentrancyGuard {
     }
 
     function pendingAll(uint256 id) external view returns (uint256[] memory amts) {
-        amts = new uint256[](districts);
-        for (uint8 t; t < districts; ++t) {
+        amts = new uint256[](tokenCount);
+        for (uint8 t; t < tokenCount; ++t) {
             (amts[t],) = _owed(id, t);
         }
     }
 
     /// @notice USD value of everything claimable by `id`, at purchase-time prices.
     function pendingUsd(uint256 id) external view returns (uint256 usd) {
-        for (uint8 t; t < districts; ++t) {
+        for (uint8 t; t < tokenCount; ++t) {
             (, uint256 u) = _owed(id, t);
             usd += u;
         }
@@ -613,15 +620,15 @@ contract CapitaleVault is ICapitaleVault, Ownable2Step, ReentrancyGuard {
     }
 
     function votesOf(uint256 w) external view returns (uint256[] memory) {
-        return _firstN(_votes[w]);
+        return _firstN(_votes[w], tokenCount);
     }
 
     function newBuildsOf(uint256 w) external view returns (uint256[] memory) {
-        return _firstN(_newBuilds[w]);
+        return _firstN(_newBuilds[w], districts);
     }
 
-    function _firstN(uint256[4] storage a) internal view returns (uint256[] memory out) {
-        out = new uint256[](districts);
+    function _firstN(uint256[4] storage a, uint8 n) internal view returns (uint256[] memory out) {
+        out = new uint256[](n);
         for (uint256 i; i < out.length; ++i) {
             out[i] = a[i];
         }
@@ -644,7 +651,7 @@ contract CapitaleVault is ICapitaleVault, Ownable2Step, ReentrancyGuard {
     }
 
     function setAdapter(uint8 t, ISwapAdapter adapter) external onlyOwner {
-        if (t >= districts) revert BadToken();
+        if (t >= tokenCount) revert BadToken();
         adapters[t] = adapter;
         emit AdapterSet(t, address(adapter));
     }

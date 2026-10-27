@@ -31,7 +31,7 @@ contract Handler is Test {
     function buildOne(uint256 u, uint8 d, uint8 s) external {
         if (nft.totalResidents() >= 3000) return;
         vm.prank(users[u % 3]);
-        try nft.mint(d % 2, s % 3, 0, type(uint256).max) {} catch {}
+        try nft.mint(d % 4, s % 3, 0, type(uint256).max) {} catch {}
     }
 
     function pay(uint256 amt) external {

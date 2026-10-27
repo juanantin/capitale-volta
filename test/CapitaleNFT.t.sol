@@ -61,7 +61,7 @@ contract CapitaleNFTTest is BaseTest {
         vm.startPrank(alice);
         capitale.approve(address(nft), type(uint256).max);
         vm.expectRevert(CapitaleNFT.BadDistrict.selector);
-        nft.mint(2, 0, 0, type(uint256).max); // only Milano (0) and Roma (1) exist
+        nft.mint(4, 0, 0, type(uint256).max); // cities are 0 Milano .. 3 Venezia
         vm.expectRevert(CapitaleNFT.BadStyle.selector);
         nft.mint(0, 3, 0, type(uint256).max);
         vm.stopPrank();
@@ -120,14 +120,14 @@ contract CapitaleNFTTest is BaseTest {
     function test_setVaultOnlyOnceByDeployer() public {
         vm.expectRevert(CapitaleNFT.VaultAlreadySet.selector);
         nft.setVault(ICapitaleVault(address(1)));
-        CapitaleNFT n2 = new CapitaleNFT(IERC20(address(capitale)), ICapitalePricing(address(pricing)), mayor, 2);
+        CapitaleNFT n2 = new CapitaleNFT(IERC20(address(capitale)), ICapitalePricing(address(pricing)), mayor, 4);
         vm.prank(alice);
         vm.expectRevert(CapitaleNFT.NotDeployer.selector);
         n2.setVault(ICapitaleVault(address(1)));
     }
 
     function test_districtCountBounds() public {
-        assertEq(nft.districts(), 2);
+        assertEq(nft.districts(), 4);
         vm.expectRevert(CapitaleNFT.BadConfig.selector);
         new CapitaleNFT(IERC20(address(capitale)), ICapitalePricing(address(pricing)), mayor, 0);
         vm.expectRevert(CapitaleNFT.BadConfig.selector);
@@ -135,7 +135,7 @@ contract CapitaleNFTTest is BaseTest {
     }
 
     function test_mintRequiresVault() public {
-        CapitaleNFT n2 = new CapitaleNFT(IERC20(address(capitale)), ICapitalePricing(address(pricing)), mayor, 2);
+        CapitaleNFT n2 = new CapitaleNFT(IERC20(address(capitale)), ICapitalePricing(address(pricing)), mayor, 4);
         vm.expectRevert(CapitaleNFT.VaultNotSet.selector);
         n2.mint(0, 0, 0, 1);
     }

@@ -3,7 +3,7 @@
 // When the contracts are live, this file is replaced by reads from Base via wagmi/viem.
 
 import { useSyncExternalStore } from "react";
-import { DISTRICTS, DistrictId, MAX_BUILDINGS, levelForUsd, usdForBuilding } from "./config";
+import { DISTRICTS, DistrictId, MAX_BUILDINGS, TOKENS, TokenId, levelForUsd, usdForBuilding } from "./config";
 import { nextDeadline } from "./romeTime";
 
 export const YOU = "you";
@@ -28,7 +28,7 @@ export interface Building {
 
 export interface Purchase {
   at: number;
-  token: DistrictId;
+  token: TokenId;
   eth: number;
   tokens: number;
   usd: number;
@@ -69,7 +69,7 @@ export interface ChainActions {
   approve: () => Promise<void>;
   build: (district: DistrictId, style: 0 | 1 | 2, inviter: number, maxTokensWei: bigint) => Promise<number | null>;
   claim: (ids: number[]) => Promise<void>;
-  vote: (ids: number[], token: DistrictId) => Promise<void>;
+  vote: (ids: number[], token: TokenId) => Promise<void>;
 }
 
 export interface CityState {
@@ -81,7 +81,7 @@ export interface CityState {
   districtCount: number[];
   week: number;
   weekEnd: number;
-  currentToken: DistrictId;
+  currentToken: TokenId;
   votes: number[];
   newBuilds: number[];
   totalTaxEth: number;
@@ -127,7 +127,7 @@ function makeInitial(): CityState {
   const weekEnd = nextDeadline(now);
   const buildings: Building[] = [];
   const districtCount = DISTRICTS.map(() => 0);
-  const weights = [0.46, 0.54];
+  const weights = [0.3, 0.32, 0.2, 0.18];
   const total = 1247;
   for (let id = 1; id <= total; id++) {
     let x = r();
@@ -166,7 +166,7 @@ function makeInitial(): CityState {
     invitee.inviter = inviter.id;
     inviter.invites += 1;
   }
-  const votes = DISTRICTS.map(() => 0);
+  const votes = TOKENS.map(() => 0);
   for (const b of buildings) if (b.votedWeek === 0) votes[r() < 0.62 ? 1 : 0]++;
   const purchases: Purchase[] = [];
   for (let k = 0; k < 12; k++) {
@@ -183,7 +183,7 @@ function makeInitial(): CityState {
     weekEnd,
     currentToken: 1,
     votes,
-    newBuilds: [63, 67],
+    newBuilds: [41, 38, 22, 29],
     totalTaxEth: 38.42,
     totalPurchases: 212,
     totalBoughtUsd: 97_960,
@@ -351,7 +351,7 @@ export async function claim(ids: number[]) {
   set({ buildings });
 }
 
-export async function vote(ids: number[], token: DistrictId) {
+export async function vote(ids: number[], token: TokenId) {
   if (get().mode === "testnet") return chainActions?.vote(ids, token);
   const s = get();
   const buildings = [...s.buildings];
@@ -384,7 +384,7 @@ export function settleIfDue(now: number) {
   s.votes.forEach((v, i) => {
     if (v > best) {
       best = v;
-      idx = i as DistrictId;
+      idx = i as TokenId;
       tie = false;
     } else if (v === best && v > 0) tie = true;
   });
@@ -392,7 +392,7 @@ export function settleIfDue(now: number) {
     week: s.week + 1,
     weekEnd: nextDeadline(now),
     currentToken: best > 0 && !tie ? idx : s.currentToken,
-    votes: DISTRICTS.map(() => 0),
+    votes: TOKENS.map(() => 0),
     newBuilds: DISTRICTS.map(() => 0),
   });
 }

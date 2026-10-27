@@ -281,16 +281,63 @@ contract CapitaleVaultWeeklyTest is BaseTest {
     }
 
     function test_vaultDistrictCountBounds() public {
-        assertEq(vault.districts(), 2);
+        assertEq(vault.districts(), 4);
+        assertEq(vault.tokenCount(), 2);
         IERC20[] memory none = new IERC20[](0);
         ISwapAdapter[] memory noRoutes = new ISwapAdapter[](0);
         vm.expectRevert(CapitaleVault.BadConfig.selector);
-        new CapitaleVault(admin, ICapitaleNFTView(address(nft)), 0, none, noRoutes, ICapitaleOracle(address(oracle)), opsSafe, IWETH(address(0)), 0, defaultParams());
+        new CapitaleVault(admin, ICapitaleNFTView(address(nft)), 0, none, noRoutes, 4, ICapitaleOracle(address(oracle)), opsSafe, IWETH(address(0)), 0, defaultParams());
         // One token but no swap route for it.
         IERC20[] memory one = new IERC20[](1);
         one[0] = IERC20(address(rewards[0]));
         vm.expectRevert(CapitaleVault.BadConfig.selector);
-        new CapitaleVault(admin, ICapitaleNFTView(address(nft)), 0, one, noRoutes, ICapitaleOracle(address(oracle)), opsSafe, IWETH(address(0)), 0, defaultParams());
+        new CapitaleVault(admin, ICapitaleNFTView(address(nft)), 0, one, noRoutes, 4, ICapitaleOracle(address(oracle)), opsSafe, IWETH(address(0)), 0, defaultParams());
+    }
+
+    function test_vaultCityCountBounds() public {
+        IERC20[] memory two = new IERC20[](2);
+        two[0] = IERC20(address(rewards[0]));
+        two[1] = IERC20(address(rewards[1]));
+        ISwapAdapter[] memory routes = new ISwapAdapter[](2);
+        routes[0] = adapter;
+        routes[1] = adapter;
+        vm.expectRevert(CapitaleVault.BadConfig.selector);
+        new CapitaleVault(admin, ICapitaleNFTView(address(nft)), 0, two, routes, 0, ICapitaleOracle(address(oracle)), opsSafe, IWETH(address(0)), 0, defaultParams());
+        vm.expectRevert(CapitaleVault.BadConfig.selector);
+        new CapitaleVault(admin, ICapitaleNFTView(address(nft)), 0, two, routes, 5, ICapitaleOracle(address(oracle)), opsSafe, IWETH(address(0)), 0, defaultParams());
+    }
+
+    // ─────────── four cities, two tokens ───────────
+
+    function test_streetRaceBetweenFourCities() public {
+        build(alice, 2); // Napoli
+        build(bob, 3); // Venezia
+        build(carol, 3); // Venezia: 2 new this week, wins
+        build(alice, 0); // Milano
+        uint256 pool = _streetBuy(0.2 ether);
+        uint256 res = vault.pending(1, 0);
+        vm.warp(FIRST_DEADLINE);
+        vault.settle();
+        assertEq(vault.pending(2, 0), res + pool / 2);
+        assertEq(vault.pending(3, 0), res + pool / 2);
+        assertEq(vault.pending(1, 0), res); // Napoli lost the race
+        assertEq(vault.pending(4, 0), res); // Milano too
+        assertEq(vault.newBuildsOf(0).length, 4);
+        assertEq(vault.votesOf(0).length, 2);
+    }
+
+    function test_votesOnlyForTheTwoTokens() public {
+        build(alice, 3); // a Venezia building votes like any other
+        vm.startPrank(alice);
+        vm.expectRevert(CapitaleVault.BadToken.selector);
+        vault.vote(ids1(1), 2);
+        vm.expectRevert(CapitaleVault.BadToken.selector);
+        vault.voteAll(3);
+        vault.vote(ids1(1), 1);
+        vm.stopPrank();
+        vm.warp(FIRST_DEADLINE);
+        vault.settle();
+        assertEq(vault.currentToken(), 1);
     }
 
     function test_onMintOnlyNft() public {

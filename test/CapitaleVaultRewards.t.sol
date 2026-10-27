@@ -34,6 +34,32 @@ contract CapitaleVaultRewardsTest is BaseTest {
         assertApproxEqAbs(vault.pending(1, 0), res / 2 + res / 3, 1);
     }
 
+    function test_everyCityEarnsBothTokens() public {
+        goPublic();
+        build(alice, 0); // Milano
+        build(alice, 1); // Roma
+        build(alice, 2); // Napoli
+        build(alice, 3); // Venezia
+        _buy(0.2 ether); // week 0 buys STOCKIFY
+        vm.prank(alice);
+        vault.voteAll(1);
+        vm.warp(vault.weekEnd());
+        _buy(0.2 ether); // week 1 buys STONKEX
+        for (uint256 id = 1; id <= 4; ++id) {
+            assertGt(vault.pending(id, 0), 0);
+            assertGt(vault.pending(id, 1), 0);
+            // Same share in every city (week 0's street race was a 4-way tie).
+            assertEq(vault.pending(id, 0), vault.pending(1, 0));
+            assertEq(vault.pending(id, 1), vault.pending(1, 1));
+        }
+        uint256[] memory p = vault.pendingAll(4);
+        assertEq(p.length, 2);
+        vm.prank(alice);
+        vault.claim(4);
+        assertEq(rewards[0].balanceOf(alice), p[0]);
+        assertEq(rewards[1].balanceOf(alice), p[1]);
+    }
+
     function test_mayorGetsNothing() public {
         goPublic();
         build(alice, 0);

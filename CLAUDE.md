@@ -15,20 +15,25 @@ only lists what changes for Capitale. When in doubt, do what Stockopolis does.
 | Flap tax token, 1% buy + 1% sell | $CAPITALE on Stonks Exchange at the 1% fee tier (decided by Juan); the creator's share of that fee is redirected to the vault after launch |
 | Flap VaultEx + Flap scheduled service | Whitelisted DEX router + keeper bot with the same rules |
 | 4 stock tokens: NVDAB, SPCXB, TSLAB, AAPLB | 2 tokens: STOCKIFY, STONKEX (decided by Juan; DGUY and TEMU dropped) |
-| 4 Chinese-named streets | 2 Italian cities (table below) |
+| 4 Chinese-named streets, one stock each | 4 Italian cities (table below), all earning both tokens |
 | Chainlink / DEX average reference price | DEX TWAP on Base for both tokens (no Chainlink feeds for them) |
 | Beijing time weekly deadline | Sunday 20:00 Rome time (Europe/Rome: CET in winter, CEST in summer) |
 
 ## Districts (locked)
-| Banner (big) | City (small) | Colour | Landmark |
-|---|---|---|---|
-| STOCKIFY | Milano | gold | Duomo spires |
-| STONKEX | Roma | orange | Colosseum |
+| City | Colour | Landmark |
+|---|---|---|
+| Milano | gold | Duomo spires |
+| Roma | orange | Colosseum |
+| Napoli | green | Vesuvius + pizzeria |
+| Venezia | blue | Campanile + gondola |
 
-Token name BIG on each banner, city name small underneath. The token currently being
-bought (this week's vote winner) gets a "THIS WEEK" tag. Torino, Firenze and Sicilia art
-exists for possible later districts. Juan chose 2 districts (Milano owns the north, Roma the
-centre, south and islands). The contracts take the district count at deploy (max 4).
+Decided by Juan: 4 cities, 2 reward tokens. Every city earns the same tokens (STOCKIFY and
+STONKEX); the weekly vote picks which one is bought. A city only sets a building's plot and
+its team in the weekly street race. City name BIG on each banner, palazzi count small; the
+city leading this week's street race gets a "LEADING" tag; "this week's token" is shown in
+the stats bar. Token colours (STOCKIFY purple, STONKEX pink) differ from city colours.
+The contracts take the city count and the token list at deploy (max 4 each).
+Torino, Firenze and Sicilia art exists for possible later cities.
 
 ## Mechanics to implement (from the reference, with Capitale values)
 - **Tax:** 100% of the vault's fee income: 70% buys the week's token for residents, 15%

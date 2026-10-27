@@ -10,7 +10,7 @@ import { connectCity, savedCity } from "../lib/chain";
 import Logo from "./Logo";
 import WhitePaper from "./WhitePaper";
 import { BuildTab, MyPalazzoTab, RankingsTab, SindacoTab, TownHallTab, TreasuryTab } from "./Panels";
-import { DISTRICTS, MAX_BUILDINGS } from "../lib/config";
+import { MAX_BUILDINGS, TOKENS } from "../lib/config";
 import { setLive, setMode, settleIfDue, tick, ui, useCity } from "../lib/store";
 
 const TABS = [
@@ -64,7 +64,7 @@ function Game() {
   }, []);
 
   ui.panelOpen = tab !== null;
-  const D = DISTRICTS[city.currentToken];
+  const D = TOKENS[city.currentToken];
   const current = TABS.find((t) => t.key === tab);
 
   return (

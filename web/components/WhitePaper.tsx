@@ -8,8 +8,8 @@ export default function WhitePaper() {
       <p>
         Capitale is a city-building game on Base. You burn $CAPITALE to build a palazzo on a toy map of Italy. Every
         palazzo is an NFT that receives a share of the city&apos;s weekly purchases of two tokens: STOCKIFY and
-        STONKEX. Each token has its own district: STOCKIFY is Milano (the north), STONKEX is Roma (the centre and
-        south).
+        STONKEX. You build in one of four cities (Milano, Roma, Napoli or Venezia), and every city earns both tokens.
+        Your city decides where your palazzo stands and which team you are on in the weekly street race.
       </p>
 
       <h3>2. $CAPITALE and the city tax</h3>
@@ -30,8 +30,8 @@ export default function WhitePaper() {
       <h3>4. Buildings</h3>
       <ul>
         <li>3,000 palazzi in total. The Mayor&apos;s palazzo, #0, is minted at launch; it earns nothing and has no vote.</li>
-        <li>To build: choose a district (Milano or Roma) and one of 3 styles. Both are permanent. Optionally enter the number of the building that invited you.</li>
-        <li>Numbers are sequential across the city. Within a district, earlier buildings get the plots nearest the centre.</li>
+        <li>To build: choose a city (Milano, Roma, Napoli or Venezia) and one of 3 styles. Both are permanent. Optionally enter the number of the building that invited you.</li>
+        <li>Numbers are sequential across the city. Within a city, earlier buildings get the plots nearest its landmark.</li>
         <li>Palazzi are normal NFTs: you can sell or transfer them. Unclaimed rewards and height move with the building.</li>
         <li>Invites are decorations only (flags, neon signs, fireworks). There is no referral income.</li>
         <li>When all 3,000 are built, the city is complete and building closes.</li>
@@ -68,8 +68,8 @@ export default function WhitePaper() {
 
       <h3>9. Street competition</h3>
       <ul>
-        <li>The district with the most new palazzi in the week wins the 15% street pool, shared equally by all its palazzi. Tied districts share.</li>
-        <li>If nobody built that week, every district that has buildings shares the pool.</li>
+        <li>The city with the most new palazzi in the week wins the 15% street pool (in that week&apos;s token), shared equally by all its palazzi. Tied cities share.</li>
+        <li>If nobody built that week, every city that has buildings shares the pool.</li>
         <li>After all 3,000 are built, the competition ends and the street pool is shared across the whole city.</li>
       </ul>
 
