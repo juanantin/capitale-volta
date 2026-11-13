@@ -1509,3 +1509,28 @@ body,
     opacity: 0;
   }
 }
+
+/* Token chips on each city banner: all three earned, this week's buy lit up. */
+.banner-tokens {
+  display: flex;
+  gap: 3px;
+  margin-top: 6px;
+}
+
+.banner-tokens i {
+  font-family: var(--mono);
+  font-style: normal;
+  font-size: 8px;
+  letter-spacing: 0.12em;
+  padding: 2px 4px 1px;
+  border: 1px solid color-mix(in oklab, var(--t) 55%, transparent);
+  color: var(--t);
+  opacity: 0.75;
+}
+
+.banner-tokens i.on {
+  background: var(--t);
+  border-color: var(--t);
+  color: var(--void);
+  opacity: 1;
+}

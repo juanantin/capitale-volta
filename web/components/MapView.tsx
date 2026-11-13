@@ -35,7 +35,9 @@ export default function MapView() {
       // just above each landmark
       const lift = k === "napoli" ? 250 : k === "venezia" ? 330 : k === "mayor" ? 210 : k === "roma" ? 130 : 200;
       const s = Math.max(0.55, Math.min(1.15, sc.scale * 2.4));
-      el.style.transform = `translate(${x}px, ${y - lift * sc.scale}px) translate(-50%, -100%) scale(${s})`;
+      // Napoli sits right under Roma's banner: shift it east so the token rows don't overlap.
+      const dx = k === "napoli" ? 110 : 0;
+      el.style.transform = `translate(${x + dx * sc.scale}px, ${y - lift * sc.scale}px) translate(-50%, -100%) scale(${s})`;
     });
     // Sea and country names, engraved-chart style.
     [...SEA_LABELS, ...LAND_LABELS].forEach(([, p], i) => {
@@ -120,6 +122,14 @@ export default function MapView() {
             {leader === D.id && <span className="this-week">LEADING</span>}
             <span className="banner-token">{D.city.toUpperCase()}</span>
             <span className="banner-city">{city.districtCount[D.id]?.toLocaleString() ?? 0} palazzi</span>
+            {/* Every city earns all three tokens; this week's buy is lit up. */}
+            <span className="banner-tokens" aria-label={`Earns ${TOKENS.map((t) => t.token).join(", ")}`}>
+              {TOKENS.map((t) => (
+                <i key={t.id} className={t.id === city.currentToken ? "on" : ""} style={{ ["--t" as string]: ink(t) }}>
+                  {t.token}
+                </i>
+              ))}
+            </span>
           </div>
         ))}
         <div ref={(el) => { banners.current[DISTRICTS.length] = el; }} className="banner mayor-banner">
