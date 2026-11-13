@@ -44,7 +44,9 @@ contract TestKitTest is Test {
                 ops: juan,
                 weth: IWETH(address(0)),
                 districts: 4,
-                initialToken: 1 // first week buys SENT
+                initialToken: 1, // the vote city starts on SENT
+                // Milano SENT, Roma VOLTA, Napoli follows the vote, Venezia VOID (kit order: VOLTA, SENT, VOID).
+                cityTokens: [uint8(1), 0, 254, 2]
             }),
             toks,
             routes,
@@ -67,19 +69,21 @@ contract TestKitTest is Test {
         vault.settle();
         assertGt(vault.pending(1, 1), 0);
 
-        // Week 2 buys VOLTA itself: no swap, set aside 1:1 for buildings.
+        // Napoli follows the vote. Week 2 buys VOLTA itself: no swap, set aside 1:1 for buildings.
+        // Fees collected right at the deadline still count for the week that ended (settlement
+        // is lazy), so Napoli's street prize is 15% of both payments: 70 + 30 = 100.
         vm.prank(juan);
         vault.vote(_ids(1), 0);
         vm.warp(vault.weekEnd());
         kit.feeEscrow().simulateTrading(address(vault), 100e18);
         vault.collectCreatorFees();
         assertTrue(vault.requestBuy());
-        assertEq(vault.heldRewards(0), 85e18);
+        assertEq(vault.heldRewards(0), 100e18);
 
         vm.prank(juan);
         vault.claim(1);
         assertGt(r[1].balanceOf(juan), 0);
-        assertEq(r[0].balanceOf(juan), 70e18); // residents' 70% of the 100 VOLTA, all to the one palazzo
+        assertEq(r[0].balanceOf(juan), 100e18); // residents' 70 + the 30 street prize, all to the one palazzo
 
         // A bad fill on a swapped token is rejected and pauses buying.
         vm.prank(juan);

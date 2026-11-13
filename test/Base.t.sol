@@ -25,6 +25,13 @@ abstract contract BaseTest is Test {
     // buy tests simple: 1 income token = $3,000.
     uint256 internal constant INCOME_USD = 3000e18;
     uint8 internal constant VOLTA_IDX = 2;
+    uint8 internal constant SENT_IDX = 0;
+    uint8 internal constant VOID_IDX = 1;
+    // Cities: 0 Milano (SENT), 1 Roma (VOLTA), 2 Napoli (follows the vote), 3 Venezia (VOID).
+    uint8 internal constant MILANO = 0;
+    uint8 internal constant ROMA = 1;
+    uint8 internal constant NAPOLI = 2;
+    uint8 internal constant VENEZIA = 3;
 
     address internal admin = makeAddr("timelock");
     address internal opsSafe = makeAddr("opsSafe");
@@ -90,6 +97,16 @@ abstract contract BaseTest is Test {
         internal
         returns (CapitaleVault)
     {
+        return deployVaultWith(toks, routes, cities, escrow, [SENT_IDX, VOLTA_IDX, 254, VOID_IDX]);
+    }
+
+    function deployVaultWith(
+        IERC20[] memory toks,
+        ISwapAdapter[] memory routes,
+        uint8 cities,
+        IFeeEscrow escrow,
+        uint8[4] memory cityTokens
+    ) internal returns (CapitaleVault) {
         return new CapitaleVault(
             CapitaleVault.Setup({
                 owner: admin,
@@ -101,7 +118,8 @@ abstract contract BaseTest is Test {
                 ops: opsSafe,
                 weth: IWETH(address(0)),
                 districts: cities,
-                initialToken: 0
+                initialToken: 0,
+                cityTokens: cityTokens
             }),
             toks,
             routes,

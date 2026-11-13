@@ -19,7 +19,7 @@ only lists what changes. When in doubt, do what Stockopolis does.
 | Flap tax token, 1% buy + 1% sell | $CAPITALE launched on Volta paired with $VOLTA. Volta: swap fee 1–5% (chosen at launch), 70% to the launch's split, 30% to Volta. Capitale sends 100% of its split to the creator; the vault holds the creator NFT, so the creator share (in VOLTA) is the city tax |
 | Flap VaultEx + Flap scheduled service | Vault pulls fees from Volta's FeeEscrow (`collectCreatorFees`, anyone) + whitelisted swap adapters + keeper bot with the same rules |
 | 4 stock tokens | 3 reward tokens: VOLTA, SENT, VOID (decided by Juan). Buying VOLTA = keep it 1:1, no swap |
-| 4 Chinese-named streets, one stock each | 4 Italian cities (table below), all earning all 3 tokens |
+| 4 Chinese-named streets, one stock each | 4 Italian cities (table below), one token each; Napoli's is the weekly vote's pick |
 | Chainlink / DEX average reference price | Volta's pool TWAPs (Oracle `twapTick`) and price calculators |
 | Beijing time weekly deadline | Sunday 20:00 Rome time |
 
@@ -30,24 +30,29 @@ only lists what changes. When in doubt, do what Stockopolis does.
 - SENT trades mainly on the VOLTA/SENT Volta pool (~$13k liquidity, Nov 2026): keep orders small (≲ $100) or the 4% check rejects them. VOID trades against HYPE (~$37k).
 
 ## Districts (locked)
-| City | Ink | Landmark |
-|---|---|---|
-| Milano | gold #d9b45a | Duomo spires |
-| Roma | orange #e0874f | Colosseum |
-| Napoli | rose #e0648f | Vesuvius + pizzeria |
-| Venezia | blue #5b8def | Campanile + gondola |
+| City | Ink | Landmark | Earns |
+|---|---|---|---|
+| Milano | gold #d9b45a | Duomo spires | SENT |
+| Roma | orange #e0874f | Colosseum | VOLTA |
+| Napoli | rose #e0648f | Vesuvius + pizzeria | the weekly vote's pick |
+| Venezia | blue #5b8def | Campanile + gondola | VOID |
 
-Decided by Juan: 4 cities, 3 reward tokens. Every city earns the same tokens (VOLTA, SENT,
-VOID); the weekly vote picks which one is bought. A city only sets a building's plot and
-its team in the weekly street race. City name BIG on each banner, palazzi count small; the
-city leading this week's street race gets a "LEADING" tag; "this week's token" is shown in
-the stats bar.
-The contracts take the city count and the token list at deploy (max 4 each).
+Decided by Juan (Nov 2026): 4 cities, 3 reward tokens, one token per city. The fourth city
+(Napoli) follows the weekly vote; the alternative Juan offered ("double VOLTA": Napoli
+earns VOLTA like Roma) is one deploy value (`cityTokens`), no code change. Each order splits
+the residents' share across cities by building count (same value per building) and buys
+each city's token (cities on one token share a swap). The street share waits in VOLTA until
+the deadline names the winner, then is bought in the winner's token. City name BIG on each
+banner, palazzi count small, the city's token chip under it ("vote" + token for Napoli); the
+city leading this week's street race gets a "LEADING" tag; Napoli's current token is shown
+in the stats bar.
+The contracts take the city count, the token list and the token per city at deploy (max 4 each).
 Torino, Firenze and Sicilia art exists for possible later cities.
 
 ## Mechanics to implement (from the reference, with Capitale values)
-- **Tax:** 100% of the vault's fee income: 70% buys the week's token for residents, 15%
-  buys it for the weekly street pool, 15% stays in VOLTA for operations (2-of-3 multisig).
+- **Tax:** 100% of the vault's fee income: 70% buys each city's token for its residents,
+  15% for the weekly street pool (bought in the winner's token after the deadline), 15%
+  stays in VOLTA for operations (2-of-3 multisig).
 - **Buying:** accumulate, buy at a minimum order size, cap per order, one order at a time,
   minimum interval, price check against the reference with a max deviation (Stockopolis:
   0.5 BNB / 3 BNB / 10 min / 4% / 6h pause / 24h idle pause). Scale the ETH thresholds to
@@ -68,8 +73,9 @@ Torino, Firenze and Sicilia art exists for possible later cities.
   fail to transfer; pendingUsd(id).
 - **Height:** cumulative claimed USD at purchase-time value; L1 $0, L2 $5, L3 $20, L4 $50,
   L5 $100, then +1 level per extra $50, no cap. Cosmetic only.
-- **Weekly vote:** one vote per building per week (not Mayor); vote(ids, token) /
-  voteAll(token); most votes picks next week's token; no votes or tie = unchanged.
+- **Weekly vote:** one vote per building per week (not Mayor), any city; vote(ids, token) /
+  voteAll(token); most votes picks next week's token for the vote city (Napoli); no votes
+  or tie = unchanged.
 - **Street competition:** the district with the most new buildings this week wins the 15%
   street pool, split among its buildings; ties share; nobody built = all built districts
   share; after 3,000 buildings, shared city-wide.
@@ -125,7 +131,8 @@ CapitaleVault per the reference. Its fixed-weight split is obsolete: Capitale us
 weekly vote.
 
 ## Build order (status)
-1. Contracts + tests — done (104 tests incl. invariants; ERC-20 income, FeeEscrow collection).
+1. Contracts + tests — done (112 tests incl. invariants; ERC-20 income, FeeEscrow collection,
+   one token per city).
 2. Price reading on Elysium: oracle from Volta's pool TWAPs (`Oracle.twapTick`) and price
    calculators for VOLTA/SENT/VOID; $CAPITALE spot/TWAP from its Volta pool. TODO.
 3. Swap adapters through Uniswap's UniversalRouter (VOLTA→SENT on the VOLTA/SENT pool;

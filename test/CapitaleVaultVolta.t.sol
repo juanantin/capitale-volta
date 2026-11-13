@@ -15,32 +15,22 @@ contract CapitaleVaultVoltaTest is BaseTest {
     function setUp() public override {
         super.setUp();
         goPublic();
-        build(alice, 0);
-    }
-
-    function _voteVolta() internal {
-        vm.prank(alice);
-        vault.vote(ids1(1), VOLTA_IDX);
-        vm.warp(vault.weekEnd());
-        vault.settle();
-        assertEq(vault.currentToken(), VOLTA_IDX);
     }
 
     function test_buyingVoltaIsAOneToOneAllocation() public {
-        _voteVolta();
+        build(alice, ROMA); // Roma earns VOLTA
         adapter.setBroken(true); // no swap route is used for VOLTA
         payTax(1 ether);
         assertTrue(vault.requestBuy());
         assertEq(vault.heldRewards(VOLTA_IDX), 0.6 ether); // capped at the max order
         assertEq(vault.totalBought(VOLTA_IDX), 0.6 ether);
-        uint256 res = uint256(0.6 ether) * 7000 / 8500;
-        assertApproxEqAbs(vault.pending(1, VOLTA_IDX), res, 1);
+        assertEq(vault.pending(1, VOLTA_IDX), 0.6 ether);
         // USD value at purchase time: 0.6 income * $3,000.
         assertEq(vault.totalBoughtUsd(), 1800e18);
     }
 
     function test_heldVoltaIsNeverCountedAsNewTax() public {
-        _voteVolta();
+        build(alice, ROMA);
         payTax(1 ether);
         vault.requestBuy();
         uint256 tax = vault.totalTax();
@@ -55,7 +45,9 @@ contract CapitaleVaultVoltaTest is BaseTest {
         assertGt(volta.balanceOf(alice), 0);
         vault.settle();
         assertEq(vault.totalTax(), tax);
-        assertEq(vaultIncome(), vault.residentsFunds() + vault.streetFunds() + vault.opsFunds());
+        assertEq(
+            vaultIncome(), vault.residentsFunds() + vault.streetFunds() + vault.opsFunds() + vault.cityStreetTotal()
+        );
     }
 
     function test_opsPaidInVolta() public {
@@ -66,6 +58,7 @@ contract CapitaleVaultVoltaTest is BaseTest {
     }
 
     function test_swapAllowanceIsExactAndReset() public {
+        build(alice, MILANO); // SENT is swapped
         payTax(1 ether);
         adapter.setTakeMore(true); // tries to pull 1 wei more than approved: the fill fails
         assertFalse(vault.requestBuy());
@@ -112,7 +105,8 @@ contract CapitaleVaultVoltaTest is BaseTest {
                 ops: opsSafe,
                 weth: IWETH(address(0)),
                 districts: 4,
-                initialToken: 0
+                initialToken: 0,
+                cityTokens: [SENT_IDX, VOLTA_IDX, 254, VOID_IDX]
             }),
             allTokens(),
             allRoutes(),
@@ -124,6 +118,8 @@ contract CapitaleVaultVoltaTest is BaseTest {
         assertTrue(ok);
         v2.settle();
         assertEq(v2.residentsFunds(), 0.7 ether);
+        vm.prank(address(nft));
+        v2.onMint(1, MILANO, false); // a building to receive the SENT bought with native income
         assertTrue(v2.requestBuy());
         assertEq(address(v2).balance, 0.4 ether);
     }

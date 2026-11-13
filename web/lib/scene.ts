@@ -81,6 +81,7 @@ export class CityScene {
   private clouds = new Container();
   private baked = new Map<string, Baked>();
   private sprites = new Map<number, Sprite>();
+  private spriteCity = new Map<number, number>();
   private levels = new Map<number, number>();
   private trees: { s: Sprite; p: Pt }[] = [];
   private treeGrid = new Map<string, number[]>();
@@ -591,6 +592,7 @@ export class CityScene {
     const p = plotPosition(b.district, b.plot);
     const s = this.place(this.buildingTexture(b.district, b.style, level), p, BUILDING_SCALE);
     this.sprites.set(b.id, s);
+    this.spriteCity.set(b.id, b.district);
     this.levels.set(b.id, level);
     this.clearTreesAround(p);
     if (!animate || this.reducedMotion) return;
@@ -642,9 +644,10 @@ export class CityScene {
 
   /** A purchase: rings over every city, sparkles from the landmarks and glints on rooftops,
    *  all in the bought token's ink — every building in every city shares it. */
-  celebrate(color: number) {
+  /** Rings and sparkles in a token's ink over the cities that just received it. */
+  celebrate(color: number, cities: number[] = DISTRICT_PLACES.map((_, i) => i)) {
     if (this.reducedMotion) return;
-    const places = [...DISTRICT_PLACES.map((k) => PLACES[k]), PLACES.mayor];
+    const places = cities.map((i) => PLACES[DISTRICT_PLACES[i]]);
     for (const [x, y] of places) {
       const ring = new Graphics();
       ring.circle(0, 0, 150).stroke({ width: 3, color });
@@ -661,7 +664,7 @@ export class CityScene {
         this.spawn(x + (Math.random() - 0.5) * 220, y - Math.random() * 120, (Math.random() - 0.5) * 40, -90 - Math.random() * 90, 0, 1.6, color, 1, 0, this.star, 0.9);
       }
     }
-    const sprites = [...this.sprites.values()];
+    const sprites = [...this.sprites.entries()].filter(([id]) => cities.includes(this.spriteCity.get(id) ?? -1)).map(([, sp]) => sp);
     for (let k = 0; k < Math.min(90, sprites.length); k++) {
       const sp = sprites[Math.floor(Math.random() * sprites.length)];
       this.spawn(sp.x, sp.y - sp.height * 0.8, 0, -70 - Math.random() * 40, 0, 1.3, color, 0.7, 0, this.star, 0.85);

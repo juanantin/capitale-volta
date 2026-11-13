@@ -6,7 +6,7 @@ import { parseEther, type Address } from "viem";
 import { getWalletClient, switchChain } from "@wagmi/core";
 import { nftAbi, pricingAbi, testKitAbi, vaultAbi } from "./abis";
 import { CHAIN, publicClient, wagmiConfig } from "./wagmi";
-import { DISTRICTS } from "./config";
+import { DISTRICTS, FOLLOWS_VOTE } from "./config";
 
 export const DEPLOY_STEPS = [
   "Test tokens, price feed and swap (TestKit)",
@@ -77,8 +77,10 @@ export async function deployTestCity(opts: DeployOptions, onStep: (i: number) =>
       oracle,
       ops: me,
       weth: "0x0000000000000000000000000000000000000000",
-      districts: DISTRICTS.length, // 4 cities, all earning tVOLTA, tSENT and tVOID
-      initialToken: 0, // first week buys VOLTA
+      districts: DISTRICTS.length,
+      initialToken: 0, // Napoli (the vote city) starts on VOLTA
+      // One token per city (Milano tSENT, Roma tVOLTA, Napoli follows the vote, Venezia tVOID).
+      cityTokens: DISTRICTS.map((d) => (d.earns === "vote" ? FOLLOWS_VOTE : d.earns)).concat([0, 0, 0, 0]).slice(0, 4) as [number, number, number, number],
     },
     rewards,
     rewards.map(() => adapter),

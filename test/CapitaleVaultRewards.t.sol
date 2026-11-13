@@ -12,16 +12,15 @@ contract CapitaleVaultRewardsTest is BaseTest {
         require(vault.requestBuy(), "buy failed");
     }
 
+    /// Tokens the residents' 70% of `tax` buys when it all goes to one city on token `t`.
     function _residentsOut(uint8 t, uint256 tax) internal view returns (uint256) {
-        uint256 toBuy = tax - tax * 1500 / 10_000; // 85%
-        uint256 out = fill(t, toBuy);
-        return out * (tax * 7000 / 10_000) / toBuy;
+        return fill(t, tax * 7000 / 10_000);
     }
 
     function test_splitEquallyAmongExistingBuildings() public {
         goPublic();
-        build(alice, 0);
-        build(bob, 1);
+        build(alice, MILANO);
+        build(bob, MILANO);
         _buy(0.2 ether);
         uint256 res = _residentsOut(0, 0.2 ether);
         assertEq(vault.pending(1, 0), res / 2);
@@ -34,30 +33,33 @@ contract CapitaleVaultRewardsTest is BaseTest {
         assertApproxEqAbs(vault.pending(1, 0), res / 2 + res / 3, 1);
     }
 
-    function test_everyCityEarnsEveryToken() public {
+    function test_voteCityChangesTokenFixedCitiesDoNot() public {
         goPublic();
-        build(alice, 0); // Milano
-        build(alice, 1); // Roma
-        build(alice, 2); // Napoli
-        build(alice, 3); // Venezia
-        _buy(0.2 ether); // week 0 buys STOCKIFY
+        build(alice, MILANO); // SENT
+        build(alice, ROMA); // VOLTA
+        build(alice, NAPOLI); // follows the vote
+        build(alice, VENEZIA); // VOID
+        _buy(0.2 ether); // week 0: Napoli on SENT
         vm.prank(alice);
-        vault.voteAll(1);
+        vault.voteAll(VOID_IDX);
         vm.warp(vault.weekEnd());
-        _buy(0.2 ether); // week 1 buys STONKEX
-        for (uint256 id = 1; id <= 4; ++id) {
-            assertGt(vault.pending(id, 0), 0);
-            assertGt(vault.pending(id, 1), 0);
-            // Same share in every city (week 0's street race was a 4-way tie).
-            assertEq(vault.pending(id, 0), vault.pending(1, 0));
-            assertEq(vault.pending(id, 1), vault.pending(1, 1));
+        _buy(0.2 ether); // week 1: Napoli on VOID
+        assertGt(vault.pending(3, SENT_IDX), 0);
+        assertGt(vault.pending(3, VOID_IDX), 0);
+        assertEq(vault.pending(3, VOLTA_IDX), 0);
+        assertEq(vault.pending(1, VOID_IDX) + vault.pending(1, VOLTA_IDX), 0);
+        assertEq(vault.pending(2, SENT_IDX) + vault.pending(2, VOID_IDX), 0);
+        assertEq(vault.pending(4, SENT_IDX) + vault.pending(4, VOLTA_IDX), 0);
+        // Every building has earned the same value (week 0's street race was a 4-way tie).
+        for (uint256 id = 2; id <= 4; ++id) {
+            assertApproxEqAbs(vault.pendingUsd(id), vault.pendingUsd(1), 1e9);
         }
-        uint256[] memory p = vault.pendingAll(4);
+        uint256[] memory p = vault.pendingAll(3);
         assertEq(p.length, 3);
         vm.prank(alice);
-        vault.claim(4);
-        assertEq(rewards[0].balanceOf(alice), p[0]);
-        assertEq(rewards[1].balanceOf(alice), p[1]);
+        vault.claim(3);
+        assertEq(rewards[SENT_IDX].balanceOf(alice), p[SENT_IDX]);
+        assertEq(rewards[VOID_IDX].balanceOf(alice), p[VOID_IDX]);
     }
 
     function test_mayorGetsNothing() public {
@@ -70,45 +72,48 @@ contract CapitaleVaultRewardsTest is BaseTest {
         vault.claim(0);
     }
 
-    function test_noBuildingsCarriesOver() public {
+    function test_noBuildingsFundsWait() public {
         goPublic();
+        payTax(0.2 ether);
+        vm.warp(block.timestamp + 10 minutes);
+        assertFalse(vault.requestBuy()); // nobody to receive them: the income waits
+        build(alice, MILANO);
         _buy(0.2 ether);
-        uint256 res = _residentsOut(0, 0.2 ether);
-        assertEq(vault.carry(0), res);
-        build(alice, 0);
-        _buy(0.2 ether);
-        assertApproxEqAbs(vault.pending(1, 0), 2 * res, 1);
+        assertEq(vault.pending(1, SENT_IDX), _residentsOut(SENT_IDX, 0.4 ether));
     }
 
-    function test_earlyBirdPool() public {
+    function test_earlyBirdPoolPerCity() public {
         vm.warp(START);
-        build(alice, 0); // early bird
-        build(bob, 1); // early bird
-        _buy(0.2 ether); // during early bird: goes to the early-bird pool
-        uint256 res = _residentsOut(0, 0.2 ether);
-        assertEq(vault.earlyBirdPool(0), res);
-        assertEq(vault.pending(1, 0), 0);
+        build(alice, MILANO); // early bird
+        build(bob, ROMA); // early bird
+        _buy(0.2 ether); // during early bird: each city's part goes to its early-bird pool
+        assertEq(vault.earlyBirdPool(MILANO, SENT_IDX), fill(SENT_IDX, 0.07 ether));
+        assertEq(vault.earlyBirdPool(ROMA, VOLTA_IDX), 0.07 ether);
+        assertEq(vault.pending(1, SENT_IDX), 0);
 
         goPublic();
-        build(carol, 0); // not early bird, built after the window: settles the pool first
+        build(carol, MILANO); // not early bird, built after the window: settles the pools first
         assertTrue(vault.earlyBirdFinalized());
-        assertEq(vault.pending(1, 0), res / 2);
-        assertEq(vault.pending(2, 0), res / 2);
-        assertEq(vault.pending(3, 0), 0);
+        assertEq(vault.pending(1, SENT_IDX), fill(SENT_IDX, 0.07 ether));
+        assertEq(vault.pending(2, VOLTA_IDX), 0.07 ether);
+        assertEq(vault.pending(3, SENT_IDX), 0);
     }
 
-    function test_earlyBirdBuildingsShareEarlyBirdPoolEvenIfBoughtLate() public {
+    function test_laterEarlyBirdsShareThePool() public {
         vm.warp(START);
-        _buy(0.2 ether); // bought before anyone built
-        build(alice, 0);
+        build(alice, MILANO);
+        _buy(0.2 ether); // bought while alice was the only early bird
+        build(bob, MILANO); // still early bird: shares the pool when the window closes
         goPublic();
         vault.settle();
-        assertEq(vault.pending(1, 0), _residentsOut(0, 0.2 ether));
+        uint256 res = _residentsOut(SENT_IDX, 0.2 ether);
+        assertEq(vault.pending(1, SENT_IDX), res / 2);
+        assertEq(vault.pending(2, SENT_IDX), res / 2);
     }
 
     function test_claimPaysAllTokens() public {
         goPublic();
-        build(alice, 0);
+        build(alice, NAPOLI); // follows the vote: earns each token in turn
         for (uint8 t; t < 3; ++t) {
             vm.prank(alice);
             vault.vote(ids1(1), t);
@@ -128,12 +133,12 @@ contract CapitaleVaultRewardsTest is BaseTest {
 
     function test_claimSkipsFailingTokenAndKeepsItClaimable() public {
         goPublic();
-        build(alice, 0);
-        _buy(0.2 ether); // STOCKIFY
+        build(alice, NAPOLI);
+        _buy(0.2 ether); // SENT
         vm.prank(alice);
         vault.vote(ids1(1), 1);
         vm.warp(vault.weekEnd());
-        _buy(0.2 ether); // STONKEX
+        _buy(0.2 ether); // VOID
         uint256 p0 = vault.pending(1, 0);
         uint256 p1 = vault.pending(1, 1);
 
@@ -152,9 +157,9 @@ contract CapitaleVaultRewardsTest is BaseTest {
 
     function test_claimManyAndOwnership() public {
         goPublic();
-        build(alice, 0);
-        build(alice, 1);
-        build(bob, 1);
+        build(alice, MILANO);
+        build(alice, MILANO);
+        build(bob, MILANO);
         _buy(0.2 ether);
         uint256 each = vault.pending(1, 0);
         vm.prank(alice);
@@ -183,9 +188,9 @@ contract CapitaleVaultRewardsTest is BaseTest {
     function test_pendingUsdAtPurchaseTimeValue() public {
         goPublic();
         build(alice, 0);
-        _buy(0.2 ether); // 0.17 ETH * $3000 = $510 bought; residents 70/85 of it
-        uint256 expected = uint256(510e18) * 0.14 ether / 0.17 ether;
-        assertApproxEqAbs(vault.pendingUsd(1), expected, 1);
+        _buy(0.2 ether); // residents' 0.14 income * $3000 = $420
+        uint256 expected = 420e18;
+        assertEq(vault.pendingUsd(1), expected);
         // Later price moves do not change purchase-time value.
         oracle.setTokenUsd(address(rewards[0]), 5e18);
         assertApproxEqAbs(vault.pendingUsd(1), expected, 1);
@@ -223,21 +228,24 @@ contract CapitaleVaultRewardsTest is BaseTest {
         nBuildings = uint8(bound(nBuildings, 1, 40));
         tax = uint96(bound(tax, 0.2 ether, 50 ether));
         for (uint256 i; i < nBuildings; ++i) {
-            build(i % 2 == 0 ? alice : bob, uint8((i / 2) % 2));
+            build(i % 2 == 0 ? alice : bob, uint8(i % 4));
         }
         payTax(tax);
-        for (uint256 k; k < 100 && vault.residentsFunds() + vault.streetFunds() >= 0.1 ether; ++k) {
+        vm.warp(vault.weekEnd());
+        vault.settle(); // the street prize goes to the winners too
+        for (uint256 k; k < 200 && vault.residentsFunds() + vault.cityStreetTotal() >= 0.1 ether; ++k) {
             vm.warp(block.timestamp + 10 minutes);
             vault.requestBuy();
         }
-        vm.warp(vault.weekEnd());
-        vault.settle();
-        uint256 sum;
-        for (uint256 id = 1; id <= nBuildings; ++id) {
-            sum += vault.pending(id, 0);
+        for (uint8 t; t < 3; ++t) {
+            uint256 sum;
+            for (uint256 id = 1; id <= nBuildings; ++id) {
+                sum += vault.pending(id, t);
+            }
+            assertLe(sum + vault.carry(t), vault.heldRewards(t));
+            // Only rounding dust stays behind (a few wei per order).
+            assertApproxEqAbs(sum + vault.carry(t), vault.heldRewards(t), 2_000);
+            assertLe(vault.carry(t), 2_000);
         }
-        assertLe(sum, rewards[0].balanceOf(address(vault)));
-        // Only rounding dust and carry stay behind.
-        assertApproxEqAbs(sum + vault.carry(0), rewards[0].balanceOf(address(vault)), nBuildings * 2);
     }
 }

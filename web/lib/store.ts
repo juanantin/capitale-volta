@@ -3,7 +3,7 @@
 // When the contracts are live, this file is replaced by reads from Elysium via wagmi/viem.
 
 import { useSyncExternalStore } from "react";
-import { DISTRICTS, DistrictId, MAX_BUILDINGS, TOKENS, TokenId, levelForUsd, usdForBuilding } from "./config";
+import { DISTRICTS, DistrictId, MAX_BUILDINGS, TOKENS, TokenId, cityToken, levelForUsd, usdForBuilding } from "./config";
 import { nextDeadline } from "./romeTime";
 
 export const YOU = "you";
@@ -162,9 +162,13 @@ function makeInitial(): CityState {
       builtAt: now - Math.floor(age * 30 * 86400),
     });
   }
-  // Past weeks bought all three tokens: split each sample building's pending value 50/30/20.
+  // Each city earns its own token; Napoli (the vote city) has earned all three over past weeks.
   const sampleUsd = [0.00059, 0.00005, 0.000135];
-  for (const b of buildings) b.pendingTokens = [0.5, 0.3, 0.2].map((w, t) => (b.pendingUsd * w) / sampleUsd[t]);
+  for (const b of buildings) {
+    const earns = DISTRICTS[b.district].earns;
+    const mix = earns === "vote" ? [0.5, 0.3, 0.2] : TOKENS.map((t) => (t.id === earns ? 1 : 0));
+    b.pendingTokens = mix.map((w, t) => (b.pendingUsd * w) / sampleUsd[t]);
+  }
 
   // A few well-connected inviters (fireworks).
   for (let k = 0; k < 160; k++) {
@@ -433,33 +437,44 @@ export function tick() {
       if (levelForUsd(nb.claimedUsd) > from) emit({ type: "levelUp", building: nb, from });
     }
   } else {
-    // A purchase: rewards accrue to everyone.
+    // An order: the residents' share is split across cities by building count (same value for
+    // every building) and each city's part buys its own token; cities on one token share a swap.
     const amount = 60_000 + Math.random() * 240_000;
     const usd = amount * s.incomeUsd;
-    const t = s.currentToken;
-    const bought = usd / s.tokenUsd[t];
-    const per = (usd * (70 / 85)) / s.buildings.length;
-    const perTokens = (bought * (70 / 85)) / s.buildings.length;
+    const n = s.buildings.length || 1;
+    const per = usd / n; // every building gets the same value
+    const tokIn = TOKENS.map(() => 0); // USD bought per token
+    const tokBuildings = TOKENS.map(() => 0);
+    DISTRICTS.forEach((d) => {
+      const t = cityToken(d, s.currentToken);
+      tokIn[t] += per * s.districtCount[d.id];
+      tokBuildings[t] += s.districtCount[d.id];
+    });
     const buildings = s.buildings.map((b) => {
+      const t = cityToken(DISTRICTS[b.district], s.currentToken);
       const pendingTokens = [...b.pendingTokens];
-      pendingTokens[t] += perTokens;
+      pendingTokens[t] += per / s.tokenUsd[t];
       return { ...b, pendingUsd: Math.round((b.pendingUsd + per) * 100) / 100, pendingTokens };
     });
-    const purchases = [{ at: Math.floor(Date.now() / 1000), token: t, amount, tokens: bought, usd }, ...s.purchases].slice(0, 30);
+    const now = Math.floor(Date.now() / 1000);
+    const bought = TOKENS.map((tk) => ({ t: tk.id, usd: tokIn[tk.id], tokens: tokIn[tk.id] / s.tokenUsd[tk.id] })).filter((x) => x.usd > 0);
+    const purchases = [
+      ...bought.map((x) => ({ at: now, token: x.t, amount: x.usd / s.incomeUsd, tokens: x.tokens, usd: x.usd })),
+      ...s.purchases,
+    ].slice(0, 30);
     const holdings = [...s.holdings] as CityState["holdings"];
-    holdings[s.currentToken] += usd / s.tokenUsd[s.currentToken];
+    for (const x of bought) holdings[x.t] += x.tokens;
     set({
       buildings,
       purchases,
       holdings,
-      totalPurchases: s.totalPurchases + 1,
+      totalPurchases: s.totalPurchases + bought.length,
       totalBoughtUsd: s.totalBoughtUsd + usd,
-      totalTax: s.totalTax + amount / 0.85,
-      // Sample data only: rotate the week's token every few buys so all three show up. The
-      // real vault buys one token per week, picked by the vote.
-      currentToken: (s.totalPurchases + 1) % 3 === 0 ? (((t + 1) % TOKENS.length) as TokenId) : t,
+      totalTax: s.totalTax + amount / 0.7,
     });
-    emit({ type: "bought", token: t, tokens: bought, usd, buildings: buildings.length });
+    // Announce one token per order, rotating, so each city's buy shows on the map.
+    const x = bought[s.totalPurchases % bought.length];
+    if (x) emit({ type: "bought", token: x.t, tokens: x.tokens, usd: x.usd, buildings: tokBuildings[x.t] });
   }
 }
 

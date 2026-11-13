@@ -5,7 +5,7 @@ import { formatEther, formatUnits, parseEventLogs, type Address } from "viem";
 import { getWalletClient, switchChain } from "@wagmi/core";
 import { nftAbi, pricingAbi, testAdapterAbi, testFeeEscrowAbi, testOracleAbi, testTokenAbi, vaultAbi } from "./abis";
 import { CHAIN, publicClient, wagmiConfig } from "./wagmi";
-import { TOKENS, type DistrictId, type TokenId } from "./config";
+import { DISTRICTS, TOKENS, cityToken, type DistrictId, type TokenId } from "./config";
 import { announce, getCity, registerChain, setChainState, type Building, type ChainInfo, type Purchase } from "./store";
 
 const MAX = 2n ** 256n - 1n;
@@ -289,7 +289,8 @@ export async function refresh() {
     // A new on-chain buy: let the map celebrate it like in the preview.
     if (before.chain && next.totalPurchases > before.totalPurchases && next.purchases[0]) {
       const p = next.purchases[0];
-      announce({ type: "bought", token: p.token, tokens: p.tokens, usd: p.usd, buildings: next.buildings.length });
+      const onToken = next.buildings.filter((b) => cityToken(DISTRICTS[b.district], next.currentToken) === p.token).length;
+      announce({ type: "bought", token: p.token, tokens: p.tokens, usd: p.usd, buildings: onToken });
     }
   } catch (e) {
     lastError = (e as Error).message?.split("\n")[0] ?? String(e);

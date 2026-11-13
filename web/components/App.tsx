@@ -121,7 +121,7 @@ function Game() {
         <div className="stat"><span>Residents</span><b>{city.buildings.length.toLocaleString()}<small>/{MAX_BUILDINGS.toLocaleString()}</small></b></div>
         <div className="stat"><span>City tax</span><b>{compact(city.totalTax)} <small>VOLTA</small></b></div>
         <div className="stat"><span>Purchases</span><b>{city.totalPurchases}</b></div>
-        <div className="stat" style={{ ["--c" as string]: ink(D) }}><span>This week</span><b className="week-token">{D.token}</b></div>
+        <div className="stat" style={{ ["--c" as string]: ink(D) }}><span>Napoli this week</span><b className="week-token">{D.token}</b></div>
         {/* Test mode is hidden: a triple click / tap on this chip opens the test lab. */}
         <button className={`stat live ${city.mode === "testnet" || city.live ? "on" : ""}`} onClick={onModeChipClick}>
           {city.mode === "preview" ? (

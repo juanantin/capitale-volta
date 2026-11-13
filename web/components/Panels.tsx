@@ -2,7 +2,7 @@
 
 import { ink } from "../lib/theme";
 import { useEffect, useMemo, useState } from "react";
-import { DISTRICTS, DistrictId, EARLY_BIRD_UNITS, MAX_BUILDINGS, TIERS, TOKENS, levelForUsd, usdForNextLevel } from "../lib/config";
+import { DISTRICTS, DistrictId, EARLY_BIRD_UNITS, MAX_BUILDINGS, TIERS, TOKENS, cityToken, levelForUsd, usdForNextLevel } from "../lib/config";
 import { formatCountdown } from "../lib/romeTime";
 import { approve, buildMine, claim, focus, getCity, quoteBuild, useCity, vote } from "../lib/store";
 import { describeError, testActions } from "../lib/chain";
@@ -113,11 +113,14 @@ export function BuildTab() {
           <button key={d.id} className={`district-btn ${district === d.id ? "on" : ""}`} style={{ ["--c" as string]: ink(d), ["--cl" as string]: d.light }} onClick={() => { setDistrict(d.id); setStyle(null); }}>
             <span className="dt">{d.city}</span>
             <span className="dc">{d.landmark}</span>
+            <span className="dk" style={{ ["--t" as string]: ink(TOKENS[cityToken(d, city.currentToken)]) }}>
+              Earns {d.earns === "vote" ? `the vote's pick (${TOKENS[city.currentToken].token} now)` : TOKENS[d.earns].token}
+            </span>
             <span className="dn">{fmt(city.districtCount[d.id] ?? 0)} built · {city.newBuilds[d.id] ?? 0} this week</span>
           </button>
         ))}
       </div>
-      <p className="muted small">Every city earns the same rewards in {TOKENS.map((t) => t.token).join(" and ")}. Your city decides where your palazzo stands and which team you&apos;re on in the weekly street race.</p>
+      <p className="muted small">Each city earns one token: Milano SENT, Roma VOLTA, Venezia VOID, and Napoli whichever token the weekly vote picks. Every palazzo gets the same value from each purchase, whatever its city. Your city also decides where your palazzo stands and your team in the weekly street race.</p>
 
       {district !== null && (
         <>
@@ -296,7 +299,7 @@ export function TownHallTab() {
         <div className="big mono">{formatCountdown(city.weekEnd - now)}</div>
         <div className="muted small">Sunday 20:00 Rome time · {romeTime(city.weekEnd)}</div>
       </div>
-      <p>Each building has one vote per week. The token with the most votes is bought all next week. A tie or no votes keeps the current token.</p>
+      <p>Each building, in any city, has one vote per week. The vote picks the token Napoli earns next week; Milano, Roma and Venezia keep their own token. A tie or no votes keeps the current token.</p>
       <div className="votes">
         {TOKENS.map((d) => {
           const v = city.votes[d.id] ?? 0;
@@ -305,7 +308,7 @@ export function TownHallTab() {
             <div key={d.id} className="vote-row" style={{ ["--c" as string]: ink(d) }}>
               <div className="vote-label">
                 <b>{d.token}</b> <span className="muted small">{d.symbol}</span>
-                {city.currentToken === d.id && <span className="tag">THIS WEEK</span>}
+                {city.currentToken === d.id && <span className="tag">NAPOLI NOW</span>}
                 {v === max && v > 0 && leaders === 1 && <span className="tag lead">LEADING</span>}
               </div>
               <div className="bar big"><i style={{ width: `${pct}%` }} /><span>{fmt(v)} · {pct.toFixed(0)}%</span></div>

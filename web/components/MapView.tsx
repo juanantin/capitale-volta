@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { CityScene } from "../lib/scene";
-import { DISTRICTS, TOKENS, levelForUsd } from "../lib/config";
+import { DISTRICTS, TOKENS, cityToken, levelForUsd } from "../lib/config";
 import { DISTRICT_PLACES, LAND_LABELS, PLACES, SEA_LABELS } from "../lib/plots";
 import { getCity, onCityEvent, useCity } from "../lib/store";
 import { applyArtTheme } from "../lib/art";
@@ -65,7 +65,9 @@ export default function MapView() {
     const off = onCityEvent((e) => {
       if (e.type === "invited") scene.burstAt(e.building.id);
       if (e.type === "bought") {
-        scene.celebrate(parseInt(ink(TOKENS[e.token]).slice(1), 16));
+        const cur = getCity().currentToken;
+        const cities = DISTRICTS.filter((d) => cityToken(d, cur) === e.token).map((d) => d.id);
+        scene.celebrate(parseInt(ink(TOKENS[e.token]).slice(1), 16), cities);
         setToast({ key: Date.now(), token: e.token, tokens: e.tokens, buildings: e.buildings });
       }
       if (e.type === "focus") {
@@ -122,13 +124,12 @@ export default function MapView() {
             {leader === D.id && <span className="this-week">LEADING</span>}
             <span className="banner-token">{D.city.toUpperCase()}</span>
             <span className="banner-city">{city.districtCount[D.id]?.toLocaleString() ?? 0} palazzi</span>
-            {/* Every city earns all three tokens; this week's buy is lit up. */}
-            <span className="banner-tokens" aria-label={`Earns ${TOKENS.map((t) => t.token).join(", ")}`}>
-              {TOKENS.map((t) => (
-                <i key={t.id} className={t.id === city.currentToken ? "on" : ""} style={{ ["--t" as string]: ink(t) }}>
-                  {t.token}
-                </i>
-              ))}
+            {/* The token this city earns; Napoli's is picked by the weekly vote. */}
+            <span className="banner-tokens" aria-label={`Earns ${TOKENS[cityToken(D, city.currentToken)].token}`}>
+              {D.earns === "vote" && <em>vote</em>}
+              <i className="on" style={{ ["--t" as string]: ink(TOKENS[cityToken(D, city.currentToken)]) }}>
+                {TOKENS[cityToken(D, city.currentToken)].token}
+              </i>
             </span>
           </div>
         ))}
@@ -144,7 +145,10 @@ export default function MapView() {
           <b>
             {Math.round(toast.tokens).toLocaleString()} {TOKENS[toast.token].token}
           </b>
-          <span className="kicker">shared by {toast.buildings.toLocaleString()} palazzi in all four cities</span>
+          <span className="kicker">
+            for {toast.buildings.toLocaleString()} palazzi in{" "}
+            {DISTRICTS.filter((d) => cityToken(d, city.currentToken) === toast.token).map((d) => d.city).join(" and ")}
+          </span>
         </div>
       )}
       {sel && d && (
@@ -152,7 +156,10 @@ export default function MapView() {
           <button className="close" onClick={() => { setSelected(null); sceneRef.current?.select(null); }} aria-label="Close">×</button>
           <div className="bc-title">Palazzo #{sel.id}</div>
           <div className="bc-sub">{d.city} · {d.styles[sel.style]}</div>
-          <div className="bc-earns">Earns {TOKENS.map((t) => t.token).join(" · ")}</div>
+          <div className="bc-earns">
+            Earns {TOKENS[cityToken(d, city.currentToken)].token}
+            {d.earns === "vote" ? " this week (picked by the vote)" : ""}
+          </div>
           <div className="bc-grid">
             <span>Level</span><b>L{levelForUsd(sel.claimedUsd)}</b>
             <span>Claimed</span><b>${sel.claimedUsd.toFixed(2)}</b>

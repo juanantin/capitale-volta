@@ -30,8 +30,12 @@ interface IFeeEscrow {
 
 /// @title CapitaleVault
 /// @notice Receives all of $CAPITALE's creator-fee income and turns it into rewards:
-///         70% buys this week's token for residents, 15% buys it for the weekly street pool,
-///         15% stays as income for operations (paid only to the ops multisig).
+///         70% for residents, 15% for the weekly street pool, 15% stays as income for
+///         operations (paid only to the ops multisig).
+///
+///         Each city earns one token, fixed at deploy (`cityToken`), or follows the weekly
+///         vote (FOLLOWS_VOTE). Capitale on Volta: Roma VOLTA, Milano SENT, Venezia VOID, and
+///         Napoli earns whichever token the vote picks.
 ///
 ///         Income is one asset fixed at deploy: an ERC-20 (Capitale on Volta: $VOLTA, the
 ///         asset $CAPITALE is paired with) or the chain's native coin (`income == address(0)`).
@@ -48,13 +52,19 @@ interface IFeeEscrow {
 ///         An order that misses the reference by more than the allowed deviation is rejected,
 ///         its ETH stays in the vault and buying pauses (6h by default).
 ///
-///         Residents' purchases are split equally among buildings existing at purchase time.
-///         During the early-bird window they go to an early-bird pool that is shared among
-///         early-bird buildings when the window closes.
+///         Each order splits the residents' share across cities by building count (so every
+///         building gets the same income value) and buys each city's token with its part;
+///         cities on the same token share one swap. Within a city the tokens are split equally
+///         among its buildings existing at purchase time. During the early-bird window a city's
+///         part goes to its early-bird pool, shared among its early-bird buildings when the
+///         window closes.
 ///
-///         Every week (deadline Sunday 20:00 Rome time) the vote picks next week's token, and
-///         the district with the most new buildings wins the street pool. Settlement is lazy:
-///         it runs on the next vote / build / buy / claim, or when anyone calls settle().
+///         Every week (deadline Sunday 20:00 Rome time) the vote picks the token of the cities
+///         that follow it, and the city with the most new buildings wins the week's street
+///         share. The street share waits as income during the week (the winner, and so the
+///         token, is only known at the deadline) and is bought in the winner's token by the
+///         next orders. Settlement is lazy: it runs on the next vote / build / buy / claim, or
+///         when anyone calls settle().
 ///
 /// @dev    Not upgradeable. The owner (a 48h TimelockController) can only change the oracle,
 ///         swap adapters, buy parameters and the ops address. There is no function that moves
@@ -87,11 +97,13 @@ contract CapitaleVault is ICapitaleVault, Ownable2Step, ReentrancyGuard {
     uint8 public immutable incomeRewardIndex;
     uint8 public constant NO_TOKEN = type(uint8).max;
     /// Number of districts (cities), fixed at deploy. Capitale: 4 (Milano, Roma, Napoli, Venezia).
-    /// Cities only matter for plots and the weekly street competition.
     uint8 public immutable districts;
-    /// Number of reward tokens, fixed at deploy. Capitale: 2 (STOCKIFY, STONKEX). The weekly
-    /// vote picks which one is bought; every building in every city earns it.
+    /// Number of reward tokens, fixed at deploy. Capitale on Volta: 3 (VOLTA, SENT, VOID).
     uint8 public immutable tokenCount;
+    /// cityToken value for a city whose token is picked by the weekly vote.
+    uint8 public constant FOLLOWS_VOTE = 254;
+    /// Token each city earns (index into `tokens`), or FOLLOWS_VOTE. Fixed at deploy.
+    uint8[4] public cityToken;
     IERC20[4] public tokens;
     uint8[4] public tokenDecimals;
 
@@ -115,8 +127,12 @@ contract CapitaleVault is ICapitaleVault, Ownable2Step, ReentrancyGuard {
 
     // Income buckets (everything else in the income balance is new, not yet split, income).
     uint256 public residentsFunds;
+    /// This week's street share, still in income until the deadline names the winner.
     uint256 public streetFunds;
     uint256 public opsFunds;
+    /// Street prizes won, per city, waiting to be bought in that city's token.
+    uint256[4] public cityStreetFunds;
+    uint256 public cityStreetTotal;
     /// Reward tokens bought and not yet claimed (pools, accumulators, carry).
     uint256[4] public heldRewards;
 
@@ -139,23 +155,20 @@ contract CapitaleVault is ICapitaleVault, Ownable2Step, ReentrancyGuard {
     uint256 public residents;
     uint256[4] public districtResidents;
     uint256 public earlyBirdCount;
+    uint256[4] public earlyBirdCityCount;
     bool public earlyBirdFinalized;
 
-    // Pools waiting for distribution (reward-token units / USD 1e18).
-    uint256[4] public streetPool;
-    uint256[4] public streetPoolUsd;
-    uint256[4] public earlyBirdPool;
-    uint256[4] public earlyBirdPoolUsd;
+    // Early-bird pools per city, waiting for the window to close (token units / USD 1e18).
+    uint256[4][4] internal _earlyBirdPool; // [district][token]
+    uint256[4][4] internal _earlyBirdPoolUsd;
+    /// Rounding dust per token: set aside, never owed to anyone.
     uint256[4] public carry;
-    uint256[4] public carryUsd;
 
     // Accumulators: reward per building, scaled by ACC.
-    uint256[4] public accGlobal;
-    uint256[4] public accGlobalUsd;
     uint256[4][4] internal _accDistrict; // [district][token]
     uint256[4][4] internal _accDistrictUsd;
-    uint256[4] public accEarlyBird;
-    uint256[4] public accEarlyBirdUsd;
+    uint256[4][4] internal _accEarlyBird; // [district][token]
+    uint256[4][4] internal _accEarlyBirdUsd;
     mapping(uint256 => uint256[4]) internal _debt;
     mapping(uint256 => uint256[4]) internal _debtUsd;
     /// Cumulative USD claimed by a building, valued at purchase time (drives its height).
@@ -172,9 +185,9 @@ contract CapitaleVault is ICapitaleVault, Ownable2Step, ReentrancyGuard {
     event BuyRejected(uint256 indexed week, uint8 indexed token, uint256 amountIn, uint256 minOut, bytes reason);
     event CreatorFeesCollected(uint256 amount);
     event BuySkipped(uint8 reason);
-    event Distributed(uint8 indexed token, uint256 amount, uint256 buildings);
+    event Distributed(uint8 indexed district, uint8 indexed token, uint256 amount, uint256 buildings);
     event EarlyBirdFinalized(uint256 buildings);
-    event StreetWon(uint256 indexed week, uint8 indexed token, uint8 winnersMask, uint256 amount, uint256 buildings);
+    event StreetWon(uint256 indexed week, uint8 winnersMask, uint256 amount, uint256 buildings);
     event Voted(uint256 indexed week, uint256 indexed id, uint8 token);
     event WeekSettled(uint256 indexed week, uint8 nextToken, uint256 nextDeadline);
     event Claimed(uint256 indexed id, address indexed owner, uint8 indexed token, uint256 amount, uint256 usd);
@@ -214,6 +227,8 @@ contract CapitaleVault is ICapitaleVault, Ownable2Step, ReentrancyGuard {
         IWETH weth;
         uint8 districts;
         uint8 initialToken;
+        /// Token per city (index into the token list) or FOLLOWS_VOTE; first `districts` used.
+        uint8[4] cityTokens;
     }
 
     constructor(Setup memory c, IERC20[] memory tokens_, ISwapAdapter[] memory adapters_, BuyParams memory params_)
@@ -226,6 +241,10 @@ contract CapitaleVault is ICapitaleVault, Ownable2Step, ReentrancyGuard {
         if (c.initialToken >= n) revert BadToken();
         tokenCount = uint8(n);
         districts = c.districts;
+        for (uint256 d; d < c.districts; ++d) {
+            if (c.cityTokens[d] >= n && c.cityTokens[d] != FOLLOWS_VOTE) revert BadToken();
+            cityToken[d] = c.cityTokens[d];
+        }
         nft = c.nft;
         earlyBirdEnd = c.earlyBirdEnd;
         weth = c.weth;
@@ -284,7 +303,7 @@ contract CapitaleVault is ICapitaleVault, Ownable2Step, ReentrancyGuard {
 
     /// @dev Split any income that arrived since the last call: 70 / 15 / 15.
     function _ingest() internal {
-        uint256 known = residentsFunds + streetFunds + opsFunds;
+        uint256 known = residentsFunds + streetFunds + opsFunds + cityStreetTotal;
         uint256 bal = _incomeBalance();
         if (bal <= known) return;
         uint256 fresh = bal - known;
@@ -300,24 +319,29 @@ contract CapitaleVault is ICapitaleVault, Ownable2Step, ReentrancyGuard {
 
     function _finalizeEarlyBird() internal {
         earlyBirdFinalized = true;
-        uint256 n = earlyBirdCount;
-        for (uint8 t; t < tokenCount; ++t) {
-            uint256 amt = earlyBirdPool[t];
-            if (amt == 0) continue;
-            uint256 usd = earlyBirdPoolUsd[t];
-            earlyBirdPool[t] = 0;
-            earlyBirdPoolUsd[t] = 0;
-            if (n == 0) {
-                _distributeResidents(t, amt, usd);
-            } else {
-                uint256 inc = (amt * ACC) / n;
-                accEarlyBird[t] += inc;
-                accEarlyBirdUsd[t] += (usd * ACC) / n;
-                carry[t] += amt - _used(inc, n);
-                emit Distributed(t, amt, n);
+        uint8 nd = districts;
+        for (uint8 d; d < nd; ++d) {
+            uint256 n = earlyBirdCityCount[d];
+            for (uint8 t; t < tokenCount; ++t) {
+                uint256 amt = _earlyBirdPool[d][t];
+                if (amt == 0) continue;
+                uint256 usd = _earlyBirdPoolUsd[d][t];
+                _earlyBirdPool[d][t] = 0;
+                _earlyBirdPoolUsd[d][t] = 0;
+                if (n == 0) {
+                    // No early birds in this city (only later builders in the window): its
+                    // buildings share it like any other purchase.
+                    _creditCity(d, t, amt, usd);
+                } else {
+                    uint256 inc = (amt * ACC) / n;
+                    _accEarlyBird[d][t] += inc;
+                    _accEarlyBirdUsd[d][t] += (usd * ACC) / n;
+                    carry[t] += amt - _used(inc, n);
+                    emit Distributed(d, t, amt, n);
+                }
             }
         }
-        emit EarlyBirdFinalized(n);
+        emit EarlyBirdFinalized(earlyBirdCount);
     }
 
     function _finalizeWeek() internal {
@@ -337,74 +361,65 @@ contract CapitaleVault is ICapitaleVault, Ownable2Step, ReentrancyGuard {
         }
         if (best > 0 && !tie) currentToken = bestIdx;
 
-        for (uint8 t; t < tokenCount; ++t) {
-            if (streetPool[t] != 0) _distributeStreet(w, t);
-        }
+        if (streetFunds != 0) _awardStreet(w);
 
         week = w + 1;
         weekEnd = RomeTime.nextDeadline(weekEnd);
         emit WeekSettled(w, currentToken, weekEnd);
     }
 
-    function _distributeStreet(uint256 w, uint8 t) internal {
+    /// @dev Hands the week's street share (still income) to the winning cities, weighted by
+    ///      their building counts; it is bought in each winner's token by the next orders.
+    function _awardStreet(uint256 w) internal {
         uint256 n = residents;
         if (n == 0) return; // nobody to pay: rolls over to next week
-        uint256 amt = streetPool[t];
-        uint256 usd = streetPoolUsd[t];
-        streetPool[t] = 0;
-        streetPoolUsd[t] = 0;
-
-        if (n >= MAX_BUILDINGS) {
-            // City complete: no more competition, shared city-wide.
-            _distributeResidents(t, amt, usd);
-            emit StreetWon(w, t, uint8((1 << districts) - 1), amt, n);
-            return;
-        }
-
-        uint256[4] storage nb = _newBuilds[w];
-        uint256 best;
+        uint256 amt = streetFunds;
         uint8 nd = districts;
-        for (uint256 d; d < nd; ++d) {
-            if (nb[d] > best) best = nb[d];
-        }
         uint8 mask;
         uint256 count;
+        if (n >= MAX_BUILDINGS) {
+            // City complete: no more competition, shared city-wide.
+            mask = uint8((1 << nd) - 1);
+            count = n;
+        } else {
+            uint256[4] storage nb = _newBuilds[w];
+            uint256 best;
+            for (uint256 d; d < nd; ++d) {
+                if (nb[d] > best) best = nb[d];
+            }
+            for (uint8 d; d < nd; ++d) {
+                // Most new buildings wins (ties share). Nobody built: every built district shares.
+                bool wins = best > 0 ? nb[d] == best : districtResidents[d] > 0;
+                if (wins) {
+                    mask |= uint8(1 << d);
+                    count += districtResidents[d];
+                }
+            }
+        }
+        uint256 given;
         for (uint8 d; d < nd; ++d) {
-            // Most new buildings wins (ties share). Nobody built: every built district shares.
-            bool wins = best > 0 ? nb[d] == best : districtResidents[d] > 0;
-            if (wins) {
-                mask |= uint8(1 << d);
-                count += districtResidents[d];
-            }
+            if (mask & (1 << d) == 0) continue;
+            uint256 part = (amt * districtResidents[d]) / count;
+            cityStreetFunds[d] += part;
+            given += part;
         }
-        uint256 inc = (amt * ACC) / count;
-        uint256 incUsd = (usd * ACC) / count;
-        for (uint256 d; d < nd; ++d) {
-            if (mask & (1 << d) != 0) {
-                _accDistrict[d][t] += inc;
-                _accDistrictUsd[d][t] += incUsd;
-            }
-        }
-        carry[t] += amt - _used(inc, count);
-        emit StreetWon(w, t, mask, amt, count);
+        streetFunds = amt - given; // rounding remainder rolls over
+        cityStreetTotal += given;
+        emit StreetWon(w, mask, amt, count);
     }
 
-    function _distributeResidents(uint8 t, uint256 amt, uint256 usd) internal {
-        amt += carry[t];
-        usd += carryUsd[t];
-        uint256 n = residents;
+    /// @dev Credit `amt` of token `t` (worth `usd`) to every building of city `d`.
+    function _creditCity(uint8 d, uint8 t, uint256 amt, uint256 usd) internal {
+        uint256 n = districtResidents[d];
         if (n == 0) {
-            carry[t] = amt;
-            carryUsd[t] = usd;
+            carry[t] += amt; // unreachable in practice: orders only fund cities with buildings
             return;
         }
         uint256 inc = (amt * ACC) / n;
-        uint256 incUsd = (usd * ACC) / n;
-        accGlobal[t] += inc;
-        accGlobalUsd[t] += incUsd;
-        carry[t] = amt - _used(inc, n);
-        carryUsd[t] = usd - _used(incUsd, n);
-        emit Distributed(t, amt, n);
+        _accDistrict[d][t] += inc;
+        _accDistrictUsd[d][t] += (usd * ACC) / n;
+        carry[t] += amt - _used(inc, n);
+        emit Distributed(d, t, amt, n);
     }
 
     /// @dev Tokens set aside by an increment of `inc` (ACC-scaled) for `n` buildings, rounded UP:
@@ -423,7 +438,10 @@ contract CapitaleVault is ICapitaleVault, Ownable2Step, ReentrancyGuard {
         residents += 1;
         districtResidents[district] += 1;
         _newBuilds[week][district] += 1;
-        if (earlyBird) earlyBirdCount += 1;
+        if (earlyBird) {
+            earlyBirdCount += 1;
+            earlyBirdCityCount[district] += 1;
+        }
         // A new building only earns from purchases made after it exists.
         for (uint8 t; t < tokenCount; ++t) {
             (_debt[id][t], _debtUsd[id][t]) = _entitlement(id, t);
@@ -432,7 +450,7 @@ contract CapitaleVault is ICapitaleVault, Ownable2Step, ReentrancyGuard {
 
     // ─────────────────────────── Buying ───────────────────────────
 
-    /// @notice Buy this week's token with the accumulated income, if the rules allow it.
+    /// @notice Buy each city's token with the accumulated income, if the rules allow it.
     ///         Anyone may call this (it also restarts an idle keeper).
     /// @return bought true if an order was executed
     function requestBuy() external nonReentrant returns (bool bought) {
@@ -447,62 +465,127 @@ contract CapitaleVault is ICapitaleVault, Ownable2Step, ReentrancyGuard {
             emit BuySkipped(SKIP_TOO_SOON);
             return false;
         }
-        uint256 pendingFunds = residentsFunds + streetFunds;
+        // Residents' funds wait until there is a building to receive them.
+        uint256 res = residents == 0 ? 0 : residentsFunds;
+        uint256 pendingFunds = res + cityStreetTotal;
         if (pendingFunds < p.minOrder || pendingFunds == 0) {
             emit BuySkipped(SKIP_BELOW_MIN);
             return false;
         }
         uint256 amount = pendingFunds < p.maxOrder ? pendingFunds : p.maxOrder;
-        uint256 forResidents = (amount * residentsFunds) / pendingFunds;
-        uint8 t = currentToken;
-        uint256 incomeUsd_ = oracle.incomeUsd();
-        // Buying the income asset itself (VOLTA) is a 1:1 allocation: nothing to price-check.
-        uint256 minOut = t == incomeRewardIndex
-            ? amount
-            : (expectedOut(t, amount, incomeUsd_) * (BPS - p.maxDeviationBps)) / BPS;
-        uint256 usd = (amount * incomeUsd_) / (10 ** incomeDecimals);
-
-        try this.executeBuy(t, amount, forResidents, minOut, usd) returns (uint256 out) {
+        try this.executeBuy(amount, res, oracle.incomeUsd(), p.maxDeviationBps) {
             lastBuyAt = block.timestamp;
-            emit Bought(week, t, amount, out, usd);
             bought = true;
         } catch (bytes memory reason) {
             pausedUntil = block.timestamp + p.rejectPause;
-            emit BuyRejected(week, t, amount, minOut, reason);
+            emit BuyRejected(week, NO_TOKEN, amount, 0, reason);
         }
     }
 
+    /// @notice The token city `d` earns this week.
+    function tokenOfCity(uint8 d) public view returns (uint8) {
+        uint8 t = cityToken[d];
+        return t == FOLLOWS_VOTE ? currentToken : t;
+    }
+
     /// @dev Only callable by the vault itself (from requestBuy), so a failed swap or a price
-    ///      check failure reverts this frame alone and leaves the income untouched.
-    function executeBuy(uint8 t, uint256 amount, uint256 forResidents, uint256 minOut, uint256 usd)
-        external
-        returns (uint256 out)
-    {
+    ///      check failure reverts the whole order and leaves the income untouched.
+    ///      One order of `amount` income: the residents' part (from `res`) is split across
+    ///      cities by building count (early-bird buildings during that window), the street
+    ///      part across cities by the prizes they won; each token is bought in one swap.
+    function executeBuy(uint256 amount, uint256 res, uint256 incomeUsd_, uint16 maxDevBps) external {
         if (msg.sender != address(this)) revert NotSelf();
-        residentsFunds -= forResidents;
-        streetFunds -= amount - forResidents;
+        (uint256[4] memory resIn, uint256[4] memory stIn, uint256[4] memory tokIn) = _planOrder(amount, res);
+        (uint256[4] memory tokOut, uint256[4] memory tokUsd) = _buyTokens(tokIn, incomeUsd_, maxDevBps);
+        _handOut(resIn, stIn, tokIn, tokOut, tokUsd);
+    }
 
-        if (t == incomeRewardIndex) {
-            out = amount; // the income asset is the reward: set it aside, no swap
-        } else {
-            out = _swap(t, amount, minOut);
+    /// @dev Split an order across cities and group it by token. Takes the amounts out of the
+    ///      income buckets.
+    function _planOrder(uint256 amount, uint256 res)
+        internal
+        returns (uint256[4] memory resIn, uint256[4] memory stIn, uint256[4] memory tokIn)
+    {
+        uint256 pend = res + cityStreetTotal;
+        uint256 resPart = (amount * res) / pend;
+        // Weights: building counts (early birds only while the window is open, if any).
+        bool ebWeights = block.timestamp < earlyBirdEnd && earlyBirdCount > 0;
+        uint256 total = ebWeights ? earlyBirdCount : residents;
+        uint256 resUsed;
+        uint256 stUsed;
+        for (uint8 d; d < districts; ++d) {
+            uint256 w = ebWeights ? earlyBirdCityCount[d] : districtResidents[d];
+            if (total != 0) resIn[d] = (resPart * w) / total;
+            stIn[d] = (amount * cityStreetFunds[d]) / pend;
+            cityStreetFunds[d] -= stIn[d];
+            resUsed += resIn[d];
+            stUsed += stIn[d];
+            tokIn[tokenOfCity(d)] += resIn[d] + stIn[d];
         }
-        heldRewards[t] += out;
+        residentsFunds -= resUsed;
+        cityStreetTotal -= stUsed;
+    }
 
-        uint256 outRes = (out * forResidents) / amount;
-        uint256 usdRes = (usd * forResidents) / amount;
-        if (block.timestamp < earlyBirdEnd) {
-            earlyBirdPool[t] += outRes;
-            earlyBirdPoolUsd[t] += usdRes;
-        } else {
-            _distributeResidents(t, outRes, usdRes);
+    /// @dev One swap per token (VOLTA is kept 1:1), each checked against the oracle reference.
+    function _buyTokens(uint256[4] memory tokIn, uint256 incomeUsd_, uint16 maxDevBps)
+        internal
+        returns (uint256[4] memory tokOut, uint256[4] memory tokUsd)
+    {
+        for (uint8 t; t < tokenCount; ++t) {
+            uint256 inT = tokIn[t];
+            if (inT == 0) continue;
+            uint256 out;
+            if (t == incomeRewardIndex) {
+                out = inT; // the income asset is the reward: set it aside, no swap
+            } else {
+                uint256 minOut = (expectedOut(t, inT, incomeUsd_) * (BPS - maxDevBps)) / BPS;
+                out = _swap(t, inT, minOut);
+            }
+            uint256 usd = (inT * incomeUsd_) / (10 ** incomeDecimals);
+            tokOut[t] = out;
+            tokUsd[t] = usd;
+            heldRewards[t] += out;
+            totalPurchases += 1;
+            totalBought[t] += out;
+            totalBoughtUsd += usd;
+            emit Bought(week, t, inT, out, usd);
         }
-        streetPool[t] += out - outRes;
-        streetPoolUsd[t] += usd - usdRes;
+    }
 
-        totalPurchases += 1;
-        totalBought[t] += out;
-        totalBoughtUsd += usd;
+    /// @dev Give each city its share of its token's output; rounding dust goes to carry.
+    function _handOut(
+        uint256[4] memory resIn,
+        uint256[4] memory stIn,
+        uint256[4] memory tokIn,
+        uint256[4] memory tokOut,
+        uint256[4] memory tokUsd
+    ) internal {
+        bool early = block.timestamp < earlyBirdEnd;
+        uint256[4] memory given;
+        for (uint8 d; d < districts; ++d) {
+            uint8 t = tokenOfCity(d);
+            uint256 inT = tokIn[t];
+            if (inT == 0) continue;
+            if (resIn[d] != 0) {
+                uint256 o = (tokOut[t] * resIn[d]) / inT;
+                uint256 u = (tokUsd[t] * resIn[d]) / inT;
+                given[t] += o;
+                if (early) {
+                    _earlyBirdPool[d][t] += o;
+                    _earlyBirdPoolUsd[d][t] += u;
+                } else {
+                    _creditCity(d, t, o, u);
+                }
+            }
+            if (stIn[d] != 0) {
+                uint256 o = (tokOut[t] * stIn[d]) / inT;
+                given[t] += o;
+                _creditCity(d, t, o, (tokUsd[t] * stIn[d]) / inT);
+            }
+        }
+        for (uint8 t; t < tokenCount; ++t) {
+            carry[t] += tokOut[t] - given[t];
+        }
     }
 
     /// @dev Swap `amount` of income into reward token `t` through its whitelisted adapter.
@@ -575,7 +658,8 @@ contract CapitaleVault is ICapitaleVault, Ownable2Step, ReentrancyGuard {
 
     // ─────────────────────────── Voting ───────────────────────────
 
-    /// @notice One vote per building per week for next week's token (0-3). Mayor cannot vote.
+    /// @notice One vote per building per week for next week's token of the cities that follow
+    ///         the vote (0-3). Mayor cannot vote.
     function vote(uint256[] calldata ids, uint8 token) external nonReentrant {
         if (token >= tokenCount) revert BadToken();
         _settle();
@@ -659,11 +743,11 @@ contract CapitaleVault is ICapitaleVault, Ownable2Step, ReentrancyGuard {
 
     function _entitlement(uint256 id, uint8 t) internal view returns (uint256 amt, uint256 usd) {
         Resident memory r = residentOf[id];
-        amt = accGlobal[t] + _accDistrict[r.district][t];
-        usd = accGlobalUsd[t] + _accDistrictUsd[r.district][t];
+        amt = _accDistrict[r.district][t];
+        usd = _accDistrictUsd[r.district][t];
         if (r.earlyBird) {
-            amt += accEarlyBird[t];
-            usd += accEarlyBirdUsd[t];
+            amt += _accEarlyBird[r.district][t];
+            usd += _accEarlyBirdUsd[r.district][t];
         }
     }
 
@@ -728,6 +812,18 @@ contract CapitaleVault is ICapitaleVault, Ownable2Step, ReentrancyGuard {
 
     function accDistrict(uint8 d, uint8 t) external view returns (uint256) {
         return _accDistrict[d][t];
+    }
+
+    function earlyBirdPool(uint8 d, uint8 t) external view returns (uint256) {
+        return _earlyBirdPool[d][t];
+    }
+
+    /// @notice Token each city earns this week, for the first `districts` cities.
+    function cityTokens() external view returns (uint8[] memory out) {
+        out = new uint8[](districts);
+        for (uint8 d; d < out.length; ++d) {
+            out[d] = tokenOfCity(d);
+        }
     }
 
     // ─────────────────────────── Admin (48h timelock) ───────────────────────────

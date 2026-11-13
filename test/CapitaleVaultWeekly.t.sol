@@ -15,11 +15,10 @@ contract CapitaleVaultWeeklyTest is BaseTest {
         goPublic();
     }
 
-    function _streetBuy(uint256 tax) internal returns (uint256 streetTokens) {
+    /// Pays `tax` now; its 15% street share waits for the deadline.
+    function _payStreet(uint256 tax) internal {
         payTax(tax);
-        vm.warp(block.timestamp + 10 minutes);
-        require(vault.requestBuy(), "buy failed");
-        streetTokens = vault.streetPool(vault.currentToken());
+        vault.settle();
     }
 
     // ─────────── votes ───────────
@@ -138,85 +137,110 @@ contract CapitaleVaultWeeklyTest is BaseTest {
     // ─────────── street competition ───────────
 
     function test_districtWithMostNewBuildingsWins() public {
-        build(alice, 0);
-        build(alice, 1);
-        build(bob, 1);
-        uint256 pool = _streetBuy(0.2 ether);
+        build(alice, MILANO);
+        build(alice, ROMA);
+        build(bob, ROMA);
+        _payStreet(0.2 ether);
+        assertEq(vault.streetFunds(), 0.03 ether);
         vm.warp(FIRST_DEADLINE);
         vault.settle();
-        // Roma (1) built 2 this week vs Milano 1: Roma's two buildings split the street pool.
-        uint256 res = vault.pending(1, 0); // Milano: residents share only
-        assertEq(vault.pending(2, 0), res + pool / 2);
-        assertEq(vault.pending(3, 0), res + pool / 2);
-        assertEq(vault.streetPool(0), 0);
+        // Roma built 2 this week vs Milano 1: Roma wins the whole street share.
+        assertEq(vault.cityStreetFunds(ROMA), 0.03 ether);
+        assertEq(vault.cityStreetFunds(MILANO), 0);
+        assertEq(vault.streetFunds(), 0);
+        // The next order buys it in Roma's token (VOLTA) for Roma's two buildings, on top of
+        // the residents' share (0.14 split by count: 1/3 Milano, 2/3 Roma).
+        assertTrue(vault.requestBuy());
+        assertApproxEqAbs(vault.pending(2, VOLTA_IDX), 0.015 ether + uint256(0.14 ether) / 3, 2);
+        assertEq(vault.pending(2, VOLTA_IDX), vault.pending(3, VOLTA_IDX));
+        assertApproxEqAbs(vault.pending(1, SENT_IDX), fill(SENT_IDX, uint256(0.14 ether) / 3), 6);
+    }
+
+    function test_streetPrizeBoughtInWinnersToken() public {
+        build(alice, VENEZIA);
+        _payStreet(0.2 ether);
+        vm.warp(FIRST_DEADLINE);
+        assertTrue(vault.requestBuy()); // settles, then buys residents' 0.14 + the 0.03 prize
+        assertEq(vault.pending(1, VOID_IDX), fill(VOID_IDX, 0.17 ether));
+        assertEq(vault.cityStreetTotal(), 0);
     }
 
     function test_onlyThisWeeksNewBuildingsCount() public {
-        buildMany(alice, 1, 3); // Roma: 3 in week 0
+        buildMany(alice, ROMA, 3); // Roma: 3 in week 0
         vm.warp(FIRST_DEADLINE);
         vault.settle();
-        build(bob, 0); // week 1: Milano 1 new, Roma 0 new
-        uint256 pool = _streetBuy(0.2 ether);
+        build(bob, MILANO); // week 1: Milano 1 new, Roma 0 new
+        _payStreet(0.2 ether);
         vm.warp(vault.weekEnd());
         vault.settle();
-        uint256 res = vault.pending(1, 0);
-        assertEq(vault.pending(4, 0), res + pool);
+        assertEq(vault.cityStreetFunds(MILANO), 0.03 ether);
+        assertEq(vault.cityStreetFunds(ROMA), 0);
     }
 
-    function test_tiedDistrictsShare() public {
-        build(alice, 0);
-        build(bob, 1);
-        build(carol, 1); // Roma 2 new
-        build(alice, 0); // Milano 2 new: a tie
-        uint256 pool = _streetBuy(0.2 ether);
-        uint256 res = vault.pending(1, 0); // residents' share, before the street pool
+    function test_tiedDistrictsShareByBuildingCount() public {
+        build(alice, MILANO);
+        build(bob, ROMA);
+        build(carol, ROMA); // Roma 2 new
+        build(alice, MILANO); // Milano 2 new: a tie
+        _payStreet(0.2 ether);
         vm.warp(FIRST_DEADLINE);
         vault.settle();
-        uint256 each = pool / 4; // 4 buildings across the two tied districts
-        for (uint256 id = 1; id <= 4; ++id) {
-            assertEq(vault.pending(id, 0), res + each);
-        }
+        assertEq(vault.cityStreetFunds(MILANO), 0.015 ether);
+        assertEq(vault.cityStreetFunds(ROMA), 0.015 ether);
+    }
+
+    function test_tieWithDifferentSizesStillEqualPerBuilding() public {
+        buildMany(alice, MILANO, 2); // week 0
+        vm.warp(FIRST_DEADLINE);
+        vault.settle();
+        build(alice, MILANO); // week 1: Milano 1 new (3 total)
+        build(bob, ROMA); // week 1: Roma 1 new (1 total) -> tie
+        _payStreet(0.2 ether);
+        vm.warp(vault.weekEnd());
+        vault.settle();
+        // Shared among the 4 buildings of the tied cities: 3/4 Milano, 1/4 Roma.
+        assertEq(vault.cityStreetFunds(MILANO), 0.0225 ether);
+        assertEq(vault.cityStreetFunds(ROMA), 0.0075 ether);
     }
 
     function test_nobodyBuiltAllBuiltDistrictsShare() public {
-        build(alice, 0);
-        build(bob, 1);
+        build(alice, MILANO);
+        build(bob, ROMA);
         vm.warp(FIRST_DEADLINE);
         vault.settle();
-        uint256 pool = _streetBuy(0.2 ether); // week 1, nobody builds
-        uint256 res = vault.pending(1, 0);
+        _payStreet(0.2 ether); // week 1, nobody builds
         vm.warp(vault.weekEnd());
         vault.settle();
-        assertEq(vault.pending(1, 0), res + pool / 2);
-        assertEq(vault.pending(2, 0), res + pool / 2);
+        assertEq(vault.cityStreetFunds(MILANO), 0.015 ether);
+        assertEq(vault.cityStreetFunds(ROMA), 0.015 ether);
+        assertEq(vault.cityStreetFunds(NAPOLI), 0); // never built
     }
 
-    function test_noResidentsStreetPoolRollsOver() public {
-        uint256 pool = _streetBuy(0.2 ether);
+    function test_noResidentsStreetShareRollsOver() public {
+        _payStreet(0.2 ether);
         vm.warp(FIRST_DEADLINE);
         vault.settle();
-        assertEq(vault.streetPool(0), pool);
-        build(alice, 1);
+        assertEq(vault.streetFunds(), 0.03 ether); // nobody to win it
+        build(alice, ROMA);
         vm.warp(vault.weekEnd());
         vault.settle();
-        assertEq(vault.streetPool(0), 0);
-        assertEq(vault.pending(1, 0), pool); // residents' share of that buy waits in carry
+        assertEq(vault.streetFunds(), 0);
+        assertEq(vault.cityStreetFunds(ROMA), 0.03 ether);
     }
 
     function test_afterCityCompleteSharedCityWide() public {
         vm.warp(START);
-        buildMany(alice, 0, 300);
+        buildMany(alice, MILANO, 300);
         goPublic();
-        buildMany(alice, 0, 2000);
-        buildMany(bob, 1, 700);
+        buildMany(alice, MILANO, 2000);
+        buildMany(bob, ROMA, 700);
         assertEq(vault.residents(), 3000);
-        uint256 pool = _streetBuy(1 ether);
-        uint256 before = vault.pending(3000, 0);
+        _payStreet(1 ether);
         vm.warp(FIRST_DEADLINE);
         vault.settle();
         // Milano had 2,300 new this week, but the competition is over: everybody shares.
-        assertApproxEqAbs(vault.pending(3000, 0) - before, pool / 3000, 1);
-        assertEq(vault.pending(1, 0), vault.pending(3000, 0)); // Milano == Roma
+        assertEq(vault.cityStreetFunds(MILANO), uint256(0.15 ether) * 2300 / 3000);
+        assertEq(vault.cityStreetFunds(ROMA), uint256(0.15 ether) * 700 / 3000);
     }
 
     // ─────────── settlement ───────────
@@ -253,15 +277,17 @@ contract CapitaleVaultWeeklyTest is BaseTest {
     }
 
     function test_unspentTaxRollsOver() public {
-        build(alice, 0);
+        build(alice, MILANO);
         payTax(0.05 ether); // below the minimum order all week
         vault.settle();
         vm.warp(FIRST_DEADLINE);
         vault.settle();
-        assertEq(vault.residentsFunds() + vault.streetFunds(), 0.0425 ether);
+        // 0.035 residents' share + 0.0075 street prize won by Milano, both still unspent.
+        assertEq(vault.residentsFunds() + vault.cityStreetTotal(), 0.0425 ether);
         payTax(0.1 ether);
         assertTrue(vault.requestBuy());
-        assertEq(vault.residentsFunds() + vault.streetFunds(), 0);
+        assertEq(vault.residentsFunds() + vault.cityStreetTotal(), 0);
+        assertEq(vault.streetFunds(), 0.015 ether); // this week's street share waits
     }
 
     // ─────────── permissions ───────────
@@ -301,18 +327,15 @@ contract CapitaleVaultWeeklyTest is BaseTest {
     // ─────────── four cities, three tokens ───────────
 
     function test_streetRaceBetweenFourCities() public {
-        build(alice, 2); // Napoli
-        build(bob, 3); // Venezia
-        build(carol, 3); // Venezia: 2 new this week, wins
-        build(alice, 0); // Milano
-        uint256 pool = _streetBuy(0.2 ether);
-        uint256 res = vault.pending(1, 0);
+        build(alice, NAPOLI);
+        build(bob, VENEZIA);
+        build(carol, VENEZIA); // Venezia: 2 new this week, wins
+        build(alice, MILANO);
+        _payStreet(0.2 ether);
         vm.warp(FIRST_DEADLINE);
         vault.settle();
-        assertEq(vault.pending(2, 0), res + pool / 2);
-        assertEq(vault.pending(3, 0), res + pool / 2);
-        assertEq(vault.pending(1, 0), res); // Napoli lost the race
-        assertEq(vault.pending(4, 0), res); // Milano too
+        assertEq(vault.cityStreetFunds(VENEZIA), 0.03 ether);
+        assertEq(vault.cityStreetFunds(NAPOLI) + vault.cityStreetFunds(MILANO), 0);
         assertEq(vault.newBuildsOf(0).length, 4);
         assertEq(vault.votesOf(0).length, 3);
     }

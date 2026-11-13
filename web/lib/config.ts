@@ -2,8 +2,8 @@
 // $CAPITALE launches on Volta paired with $VOLTA; its creator fee (in VOLTA) is the city tax.
 // Contract addresses are filled in after the testnet deploy.
 
-/** A city on the map. Cities set a building's plot and its team in the weekly street race;
- *  every city earns the same reward tokens. */
+/** A city on the map. A city sets a building's plot, its team in the weekly street race and
+ *  the token it earns (Napoli's is picked by the weekly vote). */
 export type DistrictId = 0 | 1 | 2 | 3;
 
 export interface District {
@@ -15,16 +15,29 @@ export interface District {
   light: string;
   dark: string;
   styles: [string, string, string];
+  /** The token this city's buildings earn, or "vote": the token the weekly vote picks. */
+  earns: TokenId | "vote";
 }
 
 export const DISTRICTS: District[] = [
-  { id: 0, city: "Milano", place: "milano", landmark: "Duomo", colour: "#d9b45a", light: "#3d3420", dark: "#a8821a", styles: ["Torre della Borsa", "Atelier", "Bosco Verticale"] },
-  { id: 1, city: "Roma", place: "roma", landmark: "Colosseo", colour: "#e0874f", light: "#3d2a1f", dark: "#c2541f", styles: ["Tempietto", "Villa Romana", "Fontana"] },
-  { id: 2, city: "Napoli", place: "napoli", landmark: "Vesuvio", colour: "#e0648f", light: "#3b2230", dark: "#c23a6b", styles: ["Pizzeria", "Palazzo dei Quartieri", "Teatro"] },
-  { id: 3, city: "Venezia", place: "venezia", landmark: "Campanile", colour: "#5b8def", light: "#1f2c45", dark: "#2f62c4", styles: ["Palazzo sul Canale", "Fornace di Murano", "Bottega delle Maschere"] },
+  { id: 0, city: "Milano", place: "milano", earns: 1, landmark: "Duomo", colour: "#d9b45a", light: "#3d3420", dark: "#a8821a", styles: ["Torre della Borsa", "Atelier", "Bosco Verticale"] },
+  { id: 1, city: "Roma", place: "roma", earns: 0, landmark: "Colosseo", colour: "#e0874f", light: "#3d2a1f", dark: "#c2541f", styles: ["Tempietto", "Villa Romana", "Fontana"] },
+  { id: 2, city: "Napoli", place: "napoli", earns: "vote", landmark: "Vesuvio", colour: "#e0648f", light: "#3b2230", dark: "#c23a6b", styles: ["Pizzeria", "Palazzo dei Quartieri", "Teatro"] },
+  { id: 3, city: "Venezia", place: "venezia", earns: 2, landmark: "Campanile", colour: "#5b8def", light: "#1f2c45", dark: "#2f62c4", styles: ["Palazzo sul Canale", "Fornace di Murano", "Bottega delle Maschere"] },
 ];
 
-/** A reward token. The weekly vote picks which one the vault buys for every building. */
+/** Contract value for a city that follows the weekly vote (CapitaleVault.FOLLOWS_VOTE). */
+export const FOLLOWS_VOTE = 254;
+
+/** The token city `d` earns while `current` is the vote's pick. */
+export function cityToken(d: District, current: TokenId): TokenId {
+  return d.earns === "vote" ? current : d.earns;
+}
+
+/** The cities that follow the weekly vote (Napoli). */
+export const VOTE_CITIES = () => DISTRICTS.filter((d) => d.earns === "vote");
+
+/** A reward token. Each city earns one; the weekly vote picks Napoli's. */
 export type TokenId = 0 | 1 | 2;
 
 export interface RewardToken {

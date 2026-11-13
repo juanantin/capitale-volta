@@ -109,7 +109,10 @@ contract InvariantTest is BaseTest {
     function invariant_solvent() public view {
         uint256 n = nft.totalResidents();
         for (uint8 t; t < 3; ++t) {
-            uint256 owed = vault.carry(t) + vault.streetPool(t) + vault.earlyBirdPool(t);
+            uint256 owed = vault.carry(t);
+            for (uint8 d; d < 4; ++d) {
+                owed += vault.earlyBirdPool(d, t);
+            }
             for (uint256 id = 1; id <= n; ++id) {
                 owed += vault.pending(id, t);
             }
@@ -127,7 +130,14 @@ contract InvariantTest is BaseTest {
     }
 
     function invariant_incomeBucketsBacked() public view {
-        assertLe(vault.residentsFunds() + vault.streetFunds() + vault.opsFunds(), vaultIncome());
+        assertLe(
+            vault.residentsFunds() + vault.streetFunds() + vault.opsFunds() + vault.cityStreetTotal(), vaultIncome()
+        );
+        uint256 sum;
+        for (uint256 d; d < 4; ++d) {
+            sum += vault.cityStreetFunds(d);
+        }
+        assertEq(sum, vault.cityStreetTotal());
     }
 
     function invariant_countsConsistent() public view {
