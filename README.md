@@ -1,7 +1,9 @@
-# Capitale
+# Capitale on Volta (Elysium)
 
-A toy city of Italy on Base: burn $CAPITALE to build a palazzo, earn a share of the
-weekly token purchases, vote for next week's token, grow your building by claiming.
+An engraved city of Italy on Elysium: burn $CAPITALE (launched on Volta, paired with
+$VOLTA) to build a palazzo, earn a share of the weekly purchases of VOLTA, SENT and VOID,
+vote for next week's token, grow your building by claiming. The Base/STONKEX version
+lives in juanantin/capitale.
 Replica of Stockopolis — see `CLAUDE.md` (brief), `docs/stockopolis-reference.md` (spec)
 and `docs/DECISIONS.md` (how ambiguities were resolved).
 

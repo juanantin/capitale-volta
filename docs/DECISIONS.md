@@ -102,3 +102,17 @@ Change any of these by asking Claude; none is hard to revisit before deployment.
   street pool, paid in that week's token.
 - Map banners show the city (big) and its palazzi count; the street-race leader gets a
   "LEADING" tag. Token colours: STOCKIFY purple, STONKEX pink.
+
+# Capitale on Volta / Elysium (13 Nov 2026) — this repo
+- New instance in `juanantin/capitale-volta`; the Base/STONKEX version stays in `juanantin/capitale`.
+- $CAPITALE launches on Volta paired with $VOLTA; the vault holds the creator NFT, so the
+  creator share of the swap fee (paid in VOLTA) is the city tax. `collectCreatorFees()` pulls
+  it from Volta's FeeEscrow; anyone can call it. The creator NFT can never leave the vault.
+- Income is generic (any ERC-20 or the native coin). VOLTA is also a reward token: buying it
+  is a 1:1 allocation with no swap, and `heldRewards` keeps tokens owed to buildings apart
+  from fresh income. Swaps for SENT/VOID go through whitelisted adapters with an exact
+  allowance that is reset after each swap.
+- Rewards: VOLTA, SENT, VOID; 4 cities, all earning all three.
+- Look: Volta's engraved-banknote style (see CLAUDE.md). The old toy sprites are not used.
+- Test mode deploys on Elysium itself (no public testnet; gas costs a little real HYPE),
+  with test tokens tVOLTA/tSENT/tVOID/tCAPITALE and a test fee escrow that simulates trading.

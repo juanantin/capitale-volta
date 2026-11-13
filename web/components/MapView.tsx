@@ -85,7 +85,7 @@ export default function MapView() {
       <div className="map-overlay">
         {DISTRICTS.map((D, i) => (
           <div key={D.city} ref={(el) => { banners.current[i] = el; }} className="banner" style={{ ["--c" as string]: D.colour, ["--cd" as string]: D.dark }}>
-            {leader === D.id && <span className="this-week">👑 LEADING</span>}
+            {leader === D.id && <span className="this-week">LEADING</span>}
             <span className="banner-token">{D.city.toUpperCase()}</span>
             <span className="banner-city">{city.districtCount[D.id]?.toLocaleString() ?? 0} palazzi</span>
           </div>
@@ -105,7 +105,7 @@ export default function MapView() {
             <span>Level</span><b>L{levelForUsd(sel.claimedUsd)}</b>
             <span>Claimed</span><b>${sel.claimedUsd.toFixed(2)}</b>
             <span>Pending</span><b>${sel.pendingUsd.toFixed(2)}</b>
-            <span>Invites</span><b>{sel.invites}{sel.invites >= 2 ? " 🎆" : ""}</b>
+            <span>Invites</span><b>{sel.invites}{sel.invites >= 2 ? " " : ""}</b>
             <span>Plot</span><b>{d.city} #{sel.plot + 1}</b>
             <span>Owner</span><b>{sel.owner === city.me ? "You" : sel.owner.length > 20 ? `${sel.owner.slice(0, 6)}…${sel.owner.slice(-4)}` : sel.owner}</b>
           </div>

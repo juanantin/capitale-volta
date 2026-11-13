@@ -1,13 +1,20 @@
 import { createConfig, http } from "wagmi";
 import { injected } from "wagmi/connectors";
-import { baseSepolia } from "viem/chains";
-import { createPublicClient } from "viem";
+import { createPublicClient, defineChain } from "viem";
 
-// Base Sepolia (test network). NEXT_PUBLIC_RPC_URL can point at another node (e.g. a local
-// anvil in tests); the chain id stays 84532.
-export const RPC_URL = process.env.NEXT_PUBLIC_RPC_URL || "https://sepolia.base.org";
-export const CHAIN = baseSepolia;
-export const EXPLORER = "https://sepolia.basescan.org";
+// Elysium (chain id 99901), the chain Volta runs on. Gas is paid in HYPE.
+// NEXT_PUBLIC_RPC_URL can point at another node (e.g. a local test chain); the id stays 99901.
+export const elysium = defineChain({
+  id: 99901,
+  name: "Elysium",
+  nativeCurrency: { name: "HYPE", symbol: "HYPE", decimals: 18 },
+  rpcUrls: { default: { http: ["https://rpc.elysium.kinetiq.xyz"] } },
+  blockExplorers: { default: { name: "Elysium explorer", url: "https://elysium.kinetiq.xyz" } },
+});
+
+export const RPC_URL = process.env.NEXT_PUBLIC_RPC_URL || "https://rpc.elysium.kinetiq.xyz";
+export const CHAIN = elysium;
+export const EXPLORER = "https://elysium.kinetiq.xyz";
 
 const transport = http(RPC_URL, { batch: { batchSize: 40 } });
 

@@ -1,4 +1,5 @@
-// Static facts about Capitale: four cities, two reward tokens (STOCKIFY and STONKEX).
+// Static facts about Capitale on Elysium: four cities, three reward tokens (VOLTA, SENT, VOID).
+// $CAPITALE launches on Volta paired with $VOLTA; its creator fee (in VOLTA) is the city tax.
 // Contract addresses are filled in after the testnet deploy.
 
 /** A city on the map. Cities set a building's plot and its team in the weekly street race;
@@ -17,14 +18,14 @@ export interface District {
 }
 
 export const DISTRICTS: District[] = [
-  { id: 0, city: "Milano", place: "milano", landmark: "Duomo", colour: "#f2c94c", light: "#fbe9a6", dark: "#c99a1f", styles: ["Torre della Borsa", "Atelier", "Bosco Verticale"] },
-  { id: 1, city: "Roma", place: "roma", landmark: "Colosseo", colour: "#f2994a", light: "#fbcfa6", dark: "#c96a1f", styles: ["Tempietto", "Villa Romana", "Fontana"] },
-  { id: 2, city: "Napoli", place: "napoli", landmark: "Vesuvio", colour: "#6fcf97", light: "#bdeccf", dark: "#3a9c63", styles: ["Pizzeria", "Palazzo dei Quartieri", "Teatro"] },
-  { id: 3, city: "Venezia", place: "venezia", landmark: "Campanile", colour: "#56ccf2", light: "#b5e9fa", dark: "#2a93bd", styles: ["Palazzo sul Canale", "Fornace di Murano", "Bottega delle Maschere"] },
+  { id: 0, city: "Milano", place: "milano", landmark: "Duomo", colour: "#d9b45a", light: "#3d3420", dark: "#a8821a", styles: ["Torre della Borsa", "Atelier", "Bosco Verticale"] },
+  { id: 1, city: "Roma", place: "roma", landmark: "Colosseo", colour: "#e0874f", light: "#3d2a1f", dark: "#c2541f", styles: ["Tempietto", "Villa Romana", "Fontana"] },
+  { id: 2, city: "Napoli", place: "napoli", landmark: "Vesuvio", colour: "#e0648f", light: "#3b2230", dark: "#c23a6b", styles: ["Pizzeria", "Palazzo dei Quartieri", "Teatro"] },
+  { id: 3, city: "Venezia", place: "venezia", landmark: "Campanile", colour: "#5b8def", light: "#1f2c45", dark: "#2f62c4", styles: ["Palazzo sul Canale", "Fornace di Murano", "Bottega delle Maschere"] },
 ];
 
 /** A reward token. The weekly vote picks which one the vault buys for every building. */
-export type TokenId = 0 | 1;
+export type TokenId = 0 | 1 | 2;
 
 export interface RewardToken {
   id: TokenId;
@@ -35,8 +36,9 @@ export interface RewardToken {
 }
 
 export const TOKENS: RewardToken[] = [
-  { id: 0, token: "STOCKIFY", symbol: "STFY", colour: "#b98cf2", tokenAddress: "0xC6405D7a226e1C18E559Be2F335F74C01Ad07bF5" },
-  { id: 1, token: "STONKEX", symbol: "STONKEX", colour: "#ff7eb6", tokenAddress: "0x5ab000ff9B9FfE0349CE5ffA5fD86f217C3680F5" },
+  { id: 0, token: "VOLTA", symbol: "VOLTA", colour: "#80e3ba", tokenAddress: "0x0f79931689Af199e7CF868ed1107bBA2C83c68f7" },
+  { id: 1, token: "SENT", symbol: "SENT", colour: "#e0a35f", tokenAddress: "0xA713a15b85Cab304F9e2fbc649440B5e3AB8a8D4" },
+  { id: 2, token: "VOID", symbol: "VOID", colour: "#b59ce8", tokenAddress: "0xD31B21Cb80E431AC996269deC31A40fCf048B77f" },
 ];
 
 export const MAX_BUILDINGS = 3000;
@@ -50,7 +52,10 @@ export const TIERS = [
 ];
 
 export const CAPITALE_ADDRESS: string | null = null; // set at launch
-export const STONKS_URL = "https://stonks.exchange";
+/** The city tax is paid in the asset $CAPITALE is paired with on Volta. */
+export const INCOME = { symbol: "VOLTA", tokenAddress: "0x0f79931689Af199e7CF868ed1107bBA2C83c68f7" as `0x${string}` };
+export const GAS_SYMBOL = "HYPE";
+export const VOLTA_URL = "https://volta.family";
 
 export function usdForBuilding(id: number, earlyBird: boolean): number {
   if (earlyBird && id <= EARLY_BIRD_UNITS) return EARLY_BIRD_USD;

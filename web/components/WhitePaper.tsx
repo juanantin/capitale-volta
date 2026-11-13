@@ -6,23 +6,25 @@ export default function WhitePaper() {
 
       <h3>1. What is Capitale?</h3>
       <p>
-        Capitale is a city-building game on Base. You burn $CAPITALE to build a palazzo on a toy map of Italy. Every
-        palazzo is an NFT that receives a share of the city&apos;s weekly purchases of two tokens: STOCKIFY and
-        STONKEX. You build in one of four cities (Milano, Roma, Napoli or Venezia), and every city earns both tokens.
-        Your city decides where your palazzo stands and which team you are on in the weekly street race.
+        Capitale is a city-building game on Elysium. You burn $CAPITALE to build a palazzo on an engraved map of
+        Italy. Every palazzo is an NFT that receives a share of the city&apos;s weekly purchases of three tokens:
+        $VOLTA, SENT and VOID. You build in one of four cities (Milano, Roma, Napoli or Venezia), and every city earns
+        all three. Your city decides where your palazzo stands and which team you are on in the weekly street race.
       </p>
 
       <h3>2. $CAPITALE and the city tax</h3>
       <ul>
-        <li>$CAPITALE trades on Stonks Exchange, paired with ETH, in the 1% fee tier.</li>
-        <li>The creator&apos;s share of that fee is sent to the CapitaleVault, in ETH. This is the city tax.</li>
-        <li>70% of the tax buys this week&apos;s token for residents, 15% buys it for the weekly street pool, and 15% stays in ETH for operations (paid to a 2-of-3 multisig).</li>
+        <li>$CAPITALE launches on Volta, the Uniswap launchpad on Elysium, paired with $VOLTA. Every trade pays the pool&apos;s swap fee in $VOLTA.</li>
+        <li>Of that fee, Volta&apos;s rules send 70% to the launch&apos;s chosen split and 30% to the Volta protocol. Capitale sends its whole share to the creator, and the creator NFT is held by the CapitaleVault, so the creator share is the city tax. Nobody can take that NFT out of the vault.</li>
+        <li>Anyone can call collectCreatorFees() to move the tax from Volta&apos;s fee escrow into the vault; the keeper does it every hour.</li>
+        <li>70% of the tax buys this week&apos;s token for residents, 15% buys it for the weekly street pool, and 15% stays in $VOLTA for operations (paid to a 2-of-3 multisig).</li>
       </ul>
 
       <h3>3. How purchases work</h3>
       <ul>
-        <li>A keeper checks the vault every hour. Once 0.1 ETH or more is waiting, it buys, at most 0.6 ETH per order, one order at a time, at least 10 minutes apart. Anything left waits for the next hour.</li>
-        <li>Every order is checked against the 30-minute Uniswap average price. If the fill is more than 4% worse, the order is rejected, the ETH stays in the vault and buying pauses for 6 hours.</li>
+        <li>A keeper checks the vault every hour. Once a minimum amount of $VOLTA is waiting, it buys, capped per order, one order at a time, at least 10 minutes apart. Anything left waits for the next hour.</li>
+        <li>When the week&apos;s token is $VOLTA itself, nothing is swapped: the $VOLTA is simply set aside for the residents.</li>
+        <li>SENT and VOID are bought through their Volta pools. Every order is checked against the pool&apos;s average price; if the fill is more than 4% worse, the order is rejected, the $VOLTA stays in the vault and buying pauses for 6 hours.</li>
         <li>If nothing is bought for 24 hours, the keeper rests. Anyone can restart it by calling requestBuy().</li>
         <li>Tax that is not spent in a week rolls over to the next.</li>
       </ul>
@@ -50,7 +52,7 @@ export default function WhitePaper() {
       <ul>
         <li>The residents&apos; 70% of each purchase is split equally among all palazzi that exist at that moment.</li>
         <li>Purchases during the early-bird window go to an early-bird pool, shared among the early-bird palazzi when the window ends.</li>
-        <li>claim / claimMany pays both tokens in one transaction. There is no cooldown and rewards never expire. If one token can&apos;t be transferred, it is skipped and stays claimable.</li>
+        <li>claim / claimMany pays all three tokens in one transaction. There is no cooldown and rewards never expire. If one token can&apos;t be transferred, it is skipped and stays claimable.</li>
       </ul>
 
       <h3>7. Height</h3>

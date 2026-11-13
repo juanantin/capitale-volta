@@ -1,4 +1,5 @@
-// "Deploy test city": puts a complete Capitale on Base Sepolia from the connected wallet.
+// "Deploy test city": puts a complete Capitale on Elysium from the connected wallet, wired to
+// test tokens (tVOLTA, tSENT, tVOID, tCAPITALE) and a test fee escrow.
 // Six wallet confirmations. Testnet only: it uses the test stand-ins from TestKit.
 
 import { parseEther, type Address } from "viem";
@@ -47,8 +48,10 @@ export async function deployTestCity(opts: DeployOptions, onStep: (i: number) =>
 
   onStep(0);
   const kit = await deploy(testKitAbi, testKitBytecode, []);
-  const [capitale, oracle, adapter, rewards] = await Promise.all([
+  const [capitale, volta, feeEscrow, oracle, adapter, rewards] = await Promise.all([
     read<Address>(kit, testKitAbi, "capitale"),
+    read<Address>(kit, testKitAbi, "volta"),
+    read<Address>(kit, testKitAbi, "feeEscrow"),
     read<Address>(kit, testKitAbi, "oracle"),
     read<Address>(kit, testKitAbi, "adapter"),
     read<readonly Address[]>(kit, testKitAbi, "rewardTokens"),
@@ -65,17 +68,22 @@ export async function deployTestCity(opts: DeployOptions, onStep: (i: number) =>
 
   onStep(3);
   const vault = await deploy(vaultAbi, vaultBytecode, [
-    me,
-    nft,
-    BigInt(start + 6 * 3600),
+    {
+      owner: me,
+      nft,
+      earlyBirdEnd: BigInt(start + 6 * 3600),
+      income: volta, // the city tax arrives in (test) VOLTA
+      feeEscrow,
+      oracle,
+      ops: me,
+      weth: "0x0000000000000000000000000000000000000000",
+      districts: DISTRICTS.length, // 4 cities, all earning tVOLTA, tSENT and tVOID
+      initialToken: 0, // first week buys VOLTA
+    },
     rewards,
     rewards.map(() => adapter),
-    DISTRICTS.length, // 4 cities, all earning the 2 test reward tokens
-    oracle,
-    me,
-    "0x0000000000000000000000000000000000000000",
-    1, // first week buys STONKEX
-    { minOrder: parseEther("0.001"), maxOrder: parseEther("0.01"), minInterval: 600, rejectPause: 6 * 3600, maxDeviationBps: 400 },
+    // Test sizes in tVOLTA ($0.02 each in the test feed): buy from 100 up to 10,000 per order.
+    { minOrder: parseEther("100"), maxOrder: parseEther("10000"), minInterval: 600, rejectPause: 6 * 3600, maxDeviationBps: 400 },
   ]);
 
   onStep(4);

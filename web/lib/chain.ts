@@ -1,9 +1,9 @@
-// Testnet mode: reads a deployed test city from Base Sepolia into the store, and sends the
+// Test mode: reads a deployed test city from Elysium into the store, and sends the
 // player's transactions through their own wallet. No keys ever touch this code.
 
 import { formatEther, formatUnits, parseEventLogs, type Address } from "viem";
 import { getWalletClient, switchChain } from "@wagmi/core";
-import { nftAbi, pricingAbi, testAdapterAbi, testOracleAbi, testTokenAbi, vaultAbi } from "./abis";
+import { nftAbi, pricingAbi, testAdapterAbi, testFeeEscrowAbi, testOracleAbi, testTokenAbi, vaultAbi } from "./abis";
 import { CHAIN, publicClient, wagmiConfig } from "./wagmi";
 import { TOKENS, type DistrictId, type TokenId } from "./config";
 import { getCity, registerChain, setChainState, type Building, type ChainInfo, type Purchase } from "./store";
@@ -20,6 +20,8 @@ export interface CityAddresses {
   adapter: Address;
   tokens: Address[];
   districts: number;
+  income: Address;
+  feeEscrow: Address;
 }
 
 // ─────────── where the test city lives ───────────
@@ -58,9 +60,11 @@ export async function resolveAddresses(vault: Address): Promise<CityAddresses> {
     publicClient.readContract({ ...v, functionName: "tokenCount" }),
     publicClient.readContract({ ...v, functionName: "districts" }),
   ])).map(Number);
-  const [nft, oracle, adapter, ...tokens] = await Promise.all([
+  const [nft, oracle, income, feeEscrow, adapter, ...tokens] = await Promise.all([
     publicClient.readContract({ ...v, functionName: "nft" }),
     publicClient.readContract({ ...v, functionName: "oracle" }),
+    publicClient.readContract({ ...v, functionName: "income" }),
+    publicClient.readContract({ ...v, functionName: "feeEscrow" }),
     publicClient.readContract({ ...v, functionName: "adapters", args: [0n] }),
     ...Array.from({ length: n0 }, (_, i) => publicClient.readContract({ ...v, functionName: "tokens", args: [BigInt(i)] })),
   ]);
@@ -78,6 +82,8 @@ export async function resolveAddresses(vault: Address): Promise<CityAddresses> {
     adapter: adapter as Address,
     tokens: tokens as Address[],
     districts: cities,
+    income: income as Address,
+    feeEscrow: feeEscrow as Address,
   };
 }
 
@@ -94,34 +100,34 @@ async function readCity(a: CityAddresses, me: Address | null) {
   const rv = <T>(fn: string, args: unknown[] = []) =>
     publicClient.readContract({ ...v, functionName: fn as never, args: args as never }) as Promise<T>;
 
-  const [block, totalResidents, week, weekEnd, currentToken, totalTax, totalPurchases, totalBoughtUsd, rEth, sEth, oEth, pausedUntil, lastBuyAt, active, params, ebEnd, ebFinal, vaultEth] =
+  const [block, totalResidents, week, weekEnd, currentToken, totalTax, totalPurchases, totalBoughtUsd, rEth, sEth, oEth, pausedUntil, lastBuyAt, active, params, ebEnd, ebFinal, vaultIncome] =
     await Promise.all([
       publicClient.getBlock(),
       publicClient.readContract({ ...n, functionName: "totalResidents" }),
       rv<bigint>("week"),
       rv<bigint>("weekEnd"),
       rv<number>("currentToken"),
-      rv<bigint>("totalTaxEth"),
+      rv<bigint>("totalTax"),
       rv<bigint>("totalPurchases"),
       rv<bigint>("totalBoughtUsd"),
-      rv<bigint>("residentsEth"),
-      rv<bigint>("streetEth"),
-      rv<bigint>("opsEth"),
+      rv<bigint>("residentsFunds"),
+      rv<bigint>("streetFunds"),
+      rv<bigint>("opsFunds"),
       rv<bigint>("pausedUntil"),
       rv<bigint>("lastBuyAt"),
       rv<boolean>("schedulerActive"),
       rv<readonly [bigint, bigint, number, number, number]>("buyParams"),
       rv<bigint>("earlyBirdEnd"),
       rv<boolean>("earlyBirdFinalized"),
-      publicClient.getBalance({ address: a.vault }),
+      publicClient.readContract({ address: a.income, abi: testTokenAbi, functionName: "balanceOf", args: [a.vault] }),
     ]);
 
   const N = Number(totalResidents);
   const nextId = N + 1;
-  const [votes, newBuilds, ethUsd, capUsd, isEB, oracleOwner, quality, ...rest] = await Promise.all([
+  const [votes, newBuilds, incomeUsd, capUsd, isEB, oracleOwner, quality, ...rest] = await Promise.all([
     rv<readonly bigint[]>("votesOf", [week]),
     rv<readonly bigint[]>("newBuildsOf", [week]),
-    publicClient.readContract({ ...o, functionName: "ethUsd" }),
+    publicClient.readContract({ ...o, functionName: "incomeUsd" }),
     publicClient.readContract({ ...o, functionName: "capitaleUsdSpot" }),
     publicClient.readContract({ ...p, functionName: "isEarlyBird" }),
     publicClient.readContract({ ...o, functionName: "owner" }),
@@ -143,11 +149,11 @@ async function readCity(a: CityAddresses, me: Address | null) {
     quoteError = msg.includes("EarlyBirdSoldOut") ? "Early bird sold out: building reopens when the 6 hours end." : msg.includes("CityLocked") ? "The city is complete." : msg.includes("NotStarted") ? "Building has not started yet." : "Price unavailable right now.";
   }
 
-  let ethBalance = 0n;
+  let gasBalance = 0n;
   let capWei = 0n;
   let allowance = 0n;
   if (me) {
-    [ethBalance, capWei, allowance] = await Promise.all([
+    [gasBalance, capWei, allowance] = await Promise.all([
       publicClient.getBalance({ address: me }),
       publicClient.readContract({ ...c, functionName: "balanceOf", args: [me] }),
       publicClient.readContract({ ...c, functionName: "allowance", args: [me, a.nft] }),
@@ -200,8 +206,8 @@ async function readCity(a: CityAddresses, me: Address | null) {
   try {
     const logs = await publicClient.getContractEvents({ address: a.vault, abi: vaultAbi, eventName: "Bought", fromBlock: block.number > 9000n ? block.number - 9000n : 0n });
     purchases = logs.reverse().slice(0, 30).map((l) => {
-      const args = l.args as { token: number; ethIn: bigint; tokensOut: bigint; usd: bigint };
-      return { at: Number(block.timestamp) - Number(block.number - (l.blockNumber ?? block.number)) * 2, token: args.token as TokenId, eth: num(args.ethIn), tokens: num(args.tokensOut), usd: num(args.usd) };
+      const args = l.args as { token: number; amountIn: bigint; tokensOut: bigint; usd: bigint };
+      return { at: Number(block.timestamp) - Number(block.number - (l.blockNumber ?? block.number)) * 2, token: args.token as TokenId, amount: num(args.amountIn), tokens: num(args.tokensOut), usd: num(args.usd) };
     });
   } catch {
     /* logs unavailable */
@@ -209,8 +215,8 @@ async function readCity(a: CityAddresses, me: Address | null) {
 
   const chain: ChainInfo = {
     ...a,
-    ethBalance: num(ethBalance),
-    vaultEth: num(vaultEth),
+    gasBalance: num(gasBalance),
+    vaultIncome: num(vaultIncome),
     allowance,
     capitaleWei: capWei,
     quote,
@@ -221,8 +227,8 @@ async function readCity(a: CityAddresses, me: Address | null) {
     pausedUntil: Number(pausedUntil),
     lastBuyAt: Number(lastBuyAt),
     schedulerActive: active,
-    minOrderEth: num(params[0]),
-    maxOrderEth: num(params[1]),
+    minOrder: num(params[0]),
+    maxOrder: num(params[1]),
     minInterval: Number(params[2]),
     oracleOwner: (oracleOwner as Address).toLowerCase(),
     adapterQuality: Number(quality),
@@ -239,16 +245,16 @@ async function readCity(a: CityAddresses, me: Address | null) {
     currentToken: currentToken as TokenId,
     votes: votes.map(Number),
     newBuilds: newBuilds.map(Number),
-    totalTaxEth: num(totalTax),
+    totalTax: num(totalTax),
     totalPurchases: Number(totalPurchases),
     totalBoughtUsd: num(totalBoughtUsd),
     purchases,
-    residentsEth: num(rEth),
-    streetEth: num(sEth),
-    opsEth: num(oEth),
-    opsPaidEth: 0,
+    residentsFunds: num(rEth),
+    streetFunds: num(sEth),
+    opsFunds: num(oEth),
+    opsPaid: 0,
     holdings: holdings.map((h) => num(h)),
-    ethUsd: num(ethUsd as bigint),
+    incomeUsd: num(incomeUsd as bigint),
     capitaleUsd: num(capUsd as bigint),
     tokenUsd: tokenUsd.map((t) => num(t)),
     approved: quote ? allowance >= maxBurn && allowance > 0n : allowance > 0n,
@@ -279,6 +285,7 @@ export async function refresh() {
     setChainState(next);
   } catch (e) {
     lastError = (e as Error).message?.split("\n")[0] ?? String(e);
+    console.warn("Capitale: could not read the city", e);
   }
 }
 
@@ -331,12 +338,11 @@ function need(): CityAddresses {
 
 export const testActions = {
   faucet: () => send({ address: need().capitale, abi: testTokenAbi, functionName: "faucet" } as never),
-  async payTax(eth: bigint) {
-    const wc = await wallet();
-    const hash = await wc.sendTransaction({ to: need().vault, value: eth, account: wc.account, chain: CHAIN } as never);
-    await publicClient.waitForTransactionReceipt({ hash });
-    await refresh();
-  },
+  /** Stand-in for $CAPITALE trading on Volta: credits creator fees (test VOLTA) to the vault in the test escrow. */
+  simulateTrading: (fees: bigint) =>
+    send({ address: need().feeEscrow, abi: testFeeEscrowAbi, functionName: "simulateTrading", args: [need().vault, fees] } as never),
+  /** Pulls the creator fees from the escrow into the vault (anyone can; the keeper does it hourly). */
+  collectFees: () => send({ address: need().vault, abi: vaultAbi, functionName: "collectCreatorFees" } as never),
   async requestBuy() {
     const r = await send({ address: need().vault, abi: vaultAbi, functionName: "requestBuy" } as never);
     const logs = parseEventLogs({ abi: vaultAbi, logs: r.logs });
@@ -344,7 +350,7 @@ export const testActions = {
     if (names.includes("Bought")) return "Bought! Rewards were added to every building.";
     if (names.includes("BuyRejected")) return "Rejected: the fill was more than 4% off the reference. Buying is paused for 6 hours.";
     const skip = logs.find((l) => l.eventName === "BuySkipped") as { args: { reason: number } } | undefined;
-    return ["", "Skipped: buying is paused.", "Skipped: wait 10 minutes between orders.", "Skipped: not enough ETH waiting yet."][skip?.args.reason ?? 0] || "Done.";
+    return ["", "Skipped: buying is paused.", "Skipped: wait 10 minutes between orders.", "Skipped: not enough VOLTA waiting yet."][skip?.args.reason ?? 0] || "Done.";
   },
   settle: () => send({ address: need().vault, abi: vaultAbi, functionName: "settle" } as never),
   payOps: () => send({ address: need().vault, abi: vaultAbi, functionName: "payOps" } as never),
@@ -375,7 +381,7 @@ registerChain({
 export function describeError(e: unknown): string {
   const m = String((e as { shortMessage?: string }).shortMessage ?? (e as Error).message ?? e);
   if (/User rejected|denied/i.test(m)) return "You cancelled the transaction in your wallet.";
-  if (/insufficient funds/i.test(m)) return "Not enough test ETH in your wallet for gas. Get some from a Base Sepolia faucet.";
+  if (/insufficient funds/i.test(m)) return "Not enough HYPE in your wallet for gas. Bridge a little HYPE to Elysium (volta.family/bridge).";
   const custom = m.match(/reverted with the following reason:\s*(.+)/) ?? m.match(/error:\s*([A-Za-z]+\(.*?\))/);
   return custom ? custom[1] : m.split("\n")[0];
 }

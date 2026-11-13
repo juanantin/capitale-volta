@@ -1,6 +1,6 @@
 // Preview ("unplugged") city state. Everything here is made-up sample data that behaves like
 // the real contracts, so the screens and the map can be designed before the testnet deploy.
-// When the contracts are live, this file is replaced by reads from Base via wagmi/viem.
+// When the contracts are live, this file is replaced by reads from Elysium via wagmi/viem.
 
 import { useSyncExternalStore } from "react";
 import { DISTRICTS, DistrictId, MAX_BUILDINGS, TOKENS, TokenId, levelForUsd, usdForBuilding } from "./config";
@@ -29,7 +29,7 @@ export interface Building {
 export interface Purchase {
   at: number;
   token: TokenId;
-  eth: number;
+  amount: number; // income spent (VOLTA)
   tokens: number;
   usd: number;
 }
@@ -45,8 +45,8 @@ export interface ChainInfo {
   oracle: `0x${string}`;
   adapter: `0x${string}`;
   tokens: `0x${string}`[];
-  ethBalance: number;
-  vaultEth: number;
+  gasBalance: number;
+  vaultIncome: number;
   allowance: bigint;
   capitaleWei: bigint;
   quote: { id: number; usd: number; tokens: number; tokensWei: bigint } | null;
@@ -57,8 +57,8 @@ export interface ChainInfo {
   pausedUntil: number;
   lastBuyAt: number;
   schedulerActive: boolean;
-  minOrderEth: number;
-  maxOrderEth: number;
+  minOrder: number;
+  maxOrder: number;
   minInterval: number;
   oracleOwner: string;
   adapterQuality: number;
@@ -84,16 +84,16 @@ export interface CityState {
   currentToken: TokenId;
   votes: number[];
   newBuilds: number[];
-  totalTaxEth: number;
+  totalTax: number;
   totalPurchases: number;
   totalBoughtUsd: number;
   purchases: Purchase[];
-  residentsEth: number;
-  streetEth: number;
-  opsEth: number;
-  opsPaidEth: number;
+  residentsFunds: number;
+  streetFunds: number;
+  opsFunds: number;
+  opsPaid: number;
   holdings: number[];
-  ethUsd: number;
+  incomeUsd: number;
   capitaleUsd: number;
   tokenUsd: number[];
   approved: boolean;
@@ -167,11 +167,12 @@ function makeInitial(): CityState {
     inviter.invites += 1;
   }
   const votes = TOKENS.map(() => 0);
-  for (const b of buildings) if (b.votedWeek === 0) votes[r() < 0.62 ? 1 : 0]++;
+  for (const b of buildings) if (b.votedWeek === 0) votes[r() < 0.45 ? 0 : r() < 0.6 ? 1 : 2]++;
   const purchases: Purchase[] = [];
   for (let k = 0; k < 12; k++) {
-    const eth = 0.1 + r() * 0.5;
-    purchases.push({ at: now - k * 3600 - Math.floor(r() * 1800), token: 1, eth, tokens: 0, usd: eth * 3000 });
+    const amount = 60_000 + r() * 240_000;
+    const t = (k % 3) as TokenId;
+    purchases.push({ at: now - k * 3600 - Math.floor(r() * 1800), token: t, amount, tokens: 0, usd: amount * 0.00059 });
   }
   return {
     mode: "preview",
@@ -181,23 +182,23 @@ function makeInitial(): CityState {
     districtCount,
     week: 0,
     weekEnd,
-    currentToken: 1,
+    currentToken: 0,
     votes,
     newBuilds: [41, 38, 22, 29],
-    totalTaxEth: 38.42,
+    totalTax: 18_240_000,
     totalPurchases: 212,
-    totalBoughtUsd: 97_960,
+    totalBoughtUsd: 9_150,
     purchases,
-    residentsEth: 0.212,
-    streetEth: 0.045,
-    opsEth: 0.054,
-    opsPaidEth: 5.71,
-    holdings: [1_204_331, 2_418.6],
-    ethUsd: 3000,
-    capitaleUsd: 0.00108,
-    tokenUsd: [0.42, 3.1],
+    residentsFunds: 141_200,
+    streetFunds: 30_250,
+    opsFunds: 36_100,
+    opsPaid: 2_700_000,
+    holdings: [9_120_000, 61_400_000, 18_900_000],
+    incomeUsd: 0.00059,
+    capitaleUsd: 0.0000412,
+    tokenUsd: [0.00059, 0.00005, 0.000135],
     approved: false,
-    capitaleBalance: 250_000,
+    capitaleBalance: 9_000_000,
     live: true,
   };
 }
@@ -419,11 +420,11 @@ export function tick() {
     }
   } else {
     // A purchase: rewards accrue to everyone.
-    const eth = 0.1 + Math.random() * 0.4;
-    const usd = eth * s.ethUsd;
+    const amount = 60_000 + Math.random() * 240_000;
+    const usd = amount * s.incomeUsd;
     const per = (usd * (70 / 85)) / s.buildings.length;
     const buildings = s.buildings.map((b) => ({ ...b, pendingUsd: Math.round((b.pendingUsd + per) * 100) / 100 }));
-    const purchases = [{ at: Math.floor(Date.now() / 1000), token: s.currentToken, eth, tokens: usd / s.tokenUsd[s.currentToken], usd }, ...s.purchases].slice(0, 30);
+    const purchases = [{ at: Math.floor(Date.now() / 1000), token: s.currentToken, amount, tokens: usd / s.tokenUsd[s.currentToken], usd }, ...s.purchases].slice(0, 30);
     const holdings = [...s.holdings] as CityState["holdings"];
     holdings[s.currentToken] += usd / s.tokenUsd[s.currentToken];
     set({
@@ -432,7 +433,7 @@ export function tick() {
       holdings,
       totalPurchases: s.totalPurchases + 1,
       totalBoughtUsd: s.totalBoughtUsd + usd,
-      totalTaxEth: s.totalTaxEth + eth / 0.85,
+      totalTax: s.totalTax + amount / 0.85,
     });
   }
 }

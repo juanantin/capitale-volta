@@ -1,10 +1,9 @@
 {
-  "name": "capitale-web",
+  "name": "capitale-volta-web",
   "private": true,
   "version": "0.1.0",
   "scripts": {
     "dev": "next dev",
-    "prebuild": "node scripts/fetch-assets.mjs",
     "build": "next build",
     "start": "next start",
     "lint": "tsc --noEmit"

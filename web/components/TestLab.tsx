@@ -12,10 +12,7 @@ import { setMode, useCity } from "../lib/store";
 import { short } from "./WalletButton";
 import { useNow } from "./Panels";
 
-const FAUCETS = [
-  ["Coinbase faucet", "https://portal.cdp.coinbase.com/products/faucet"],
-  ["Alchemy faucet", "https://www.alchemy.com/faucets/base-sepolia"],
-];
+const GAS_LINKS = [["Bridge HYPE to Elysium", "https://volta.family/bridge"]];
 
 export default function TestLab() {
   const city = useCity();
@@ -28,7 +25,7 @@ export default function TestLab() {
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [step, setStep] = useState(-1);
   const [eb, setEb] = useState(600);
-  const [tax, setTax] = useState("0.003");
+  const [tax, setTax] = useState("2000");
   const [price, setPrice] = useState("");
   const [other, setOther] = useState("");
   const c = city.chain;
@@ -38,7 +35,7 @@ export default function TestLab() {
     setBusy(label);
     setMsg(null);
     fn()
-      .then((r) => setMsg({ ok: true, text: typeof r === "string" ? r : "Done ✓" }))
+      .then((r) => setMsg({ ok: true, text: typeof r === "string" ? r : "Done " }))
       .catch((e) => setMsg({ ok: false, text: describeError(e) }))
       .finally(() => setBusy(null));
   };
@@ -46,8 +43,8 @@ export default function TestLab() {
   if (city.mode !== "testnet") {
     return (
       <div className="tab">
-        <p>You&apos;re looking at <b>sample data</b>. The test lab runs the real contracts on <b>Base Sepolia</b>, Base&apos;s free test network, with test tokens that have no value.</p>
-        <button className="btn primary wide" onClick={() => setMode("testnet")}>Switch to testnet</button>
+        <p>You&apos;re looking at <b>sample data</b>. The test lab runs the real contracts on <b>Elysium</b> with test tokens (tCAPITALE, tVOLTA, tSENT, tVOID) that have no value. Elysium has no public test network, so deploying costs a little real HYPE for gas.</p>
+        <button className="btn primary wide" onClick={() => setMode("testnet")}>Switch to test mode</button>
       </div>
     );
   }
@@ -61,7 +58,7 @@ export default function TestLab() {
       return "Your test city is live! Grab test $CAPITALE below and build.";
     });
 
-  const pendingEth = city.residentsEth + city.streetEth;
+  const pendingFunds = city.residentsFunds + city.streetFunds;
   const ebLeft = c ? c.earlyBirdEnd - now : 0;
 
   return (
@@ -73,19 +70,19 @@ export default function TestLab() {
           <p className="muted small">Use a wallet just for testing (MetaMask, Coinbase Wallet, Rabby). On a phone, open this page inside the wallet app&apos;s browser.</p>
         </>
       ) : chainId !== CHAIN.id ? (
-        <button className="btn primary wide" onClick={() => switchChain({ chainId: CHAIN.id })}>Switch wallet to Base Sepolia</button>
+        <button className="btn primary wide" onClick={() => switchChain({ chainId: CHAIN.id })}>Switch wallet to Elysium</button>
       ) : (
         <div className="stat-grid">
           <div><span className="muted">Wallet</span><b>{short(address!)}</b></div>
-          <div><span className="muted">Test ETH</span><b>{c ? c.ethBalance.toFixed(4) : "…"}</b></div>
+          <div><span className="muted">HYPE (gas)</span><b>{c ? c.gasBalance.toFixed(4) : "…"}</b></div>
         </div>
       )}
       <p className="muted small">
-        Need test ETH for gas? Free from a faucet:{" "}
-        {FAUCETS.map(([n, u], i) => (
-          <span key={u}>{i > 0 && " · "}<a href={u} target="_blank" rel="noreferrer">{n}</a></span>
+        Gas on Elysium is paid in HYPE.{" "}
+        {GAS_LINKS.map(([n, u]) => (
+          <a key={u} href={u} target="_blank" rel="noreferrer">{n}</a>
         ))}
-        . About 0.05 test ETH is plenty.
+        . A deploy plus a test session costs well under 0.05 HYPE.
       </p>
 
       <h3>2 · Test city</h3>
@@ -99,12 +96,12 @@ export default function TestLab() {
             ))}
           </div>
           <button className="btn primary wide" disabled={!isConnected || chainId !== CHAIN.id || !!busy} onClick={deploy}>
-            {busy === "deploy" ? "Deploying…" : "🚀 Deploy test city"}
+            {busy === "deploy" ? "Deploying…" : "Deploy test city"}
           </button>
           {step >= 0 && (
             <ol className="steps">
               {DEPLOY_STEPS.map((s, i) => (
-                <li key={s} className={i < step ? "done" : i === step ? "now" : ""}>{i < step ? "✓" : i === step ? "⏳" : "·"} {s}</li>
+                <li key={s} className={i < step ? "done" : i === step ? "now" : ""}>{i < step ? "" : i === step ? "⏳" : "·"} {s}</li>
               ))}
             </ol>
           )}
@@ -124,7 +121,7 @@ export default function TestLab() {
             <button className="btn small" onClick={() => { navigator.clipboard?.writeText(window.location.href); setMsg({ ok: true, text: "Link copied: anyone with it opens this test city." }); }}>Copy share link</button>
             <button className="btn small ghost" onClick={() => { rememberCity(null); connectCity(null, null); setMode("preview"); setMode("testnet"); }}>Forget this city</button>
           </div>
-          {!c && <p className="muted small">{chainError() ? `Can't read the city: ${chainError()}` : "Loading the city from Base Sepolia…"}</p>}
+          {!c && <p className="muted small">{chainError() ? `Can't read the city: ${chainError()}` : "Loading the city from Elysium…"}</p>}
         </>
       )}
 
@@ -134,23 +131,25 @@ export default function TestLab() {
           <div className="stat-grid">
             <div><span className="muted">Your test $CAPITALE</span><b>{Math.floor(city.capitaleBalance).toLocaleString()}</b></div>
             <div><span className="muted">Early bird</span><b>{c.isEarlyBird ? `ends in ${formatCountdown(ebLeft)}` : c.earlyBirdFinalized ? "over, paid out" : "over"}</b></div>
-            <div><span className="muted">ETH waiting to buy</span><b>{pendingEth.toFixed(4)}</b></div>
+            <div><span className="muted">VOLTA waiting to buy</span><b>{Math.floor(pendingFunds).toLocaleString()}</b></div>
             <div><span className="muted">This week buys</span><b>{TOKENS[city.currentToken].token}</b></div>
           </div>
           <div className="lab-actions">
-            <button className="btn" disabled={!!busy} onClick={() => act("faucet", testActions.faucet)}>{busy === "faucet" ? "…" : "🎁 Get 1,000,000 test $CAPITALE"}</button>
+            <button className="btn" disabled={!!busy} onClick={() => act("faucet", testActions.faucet)}>{busy === "faucet" ? "…" : "Get 1,000,000 test $CAPITALE"}</button>
             <div className="row">
               <input className="input narrow" value={tax} onChange={(e) => setTax(e.target.value)} inputMode="decimal" />
-              <button className="btn" disabled={!!busy} onClick={() => act("tax", () => testActions.payTax(parseEther(tax || "0")))}>{busy === "tax" ? "…" : "💸 Pay test tax (ETH)"}</button>
+              <button className="btn" disabled={!!busy} onClick={() => act("trade", () => testActions.simulateTrading(parseEther(tax || "0")))}>{busy === "trade" ? "…" : "Simulate $CAPITALE trading"}</button>
             </div>
-            <p className="muted small">Stands in for the 1% Stonks Exchange fee. 85% of it waits to buy the week&apos;s token (min {c.minOrderEth} ETH per order), 15% goes to ops.</p>
-            <button className="btn" disabled={!!busy} onClick={() => act("buy", testActions.requestBuy)}>{busy === "buy" ? "…" : "🛒 Trigger a buy (requestBuy)"}</button>
+            <p className="muted small">Stands in for real trading on Volta: credits that many tVOLTA of creator fees to the vault in the fee escrow (min {c.minOrder.toLocaleString()} tVOLTA per buy).</p>
+            <button className="btn" disabled={!!busy} onClick={() => act("collect", testActions.collectFees)}>{busy === "collect" ? "…" : "Collect creator fees"}</button>
+            <p className="muted small">Pulls the fees into the vault and splits them: 70% residents, 15% street pool, 15% ops.</p>
+            <button className="btn" disabled={!!busy} onClick={() => act("buy", testActions.requestBuy)}>{busy === "buy" ? "…" : "Trigger a buy (requestBuy)"}</button>
             {c.pausedUntil > now && <p className="warn small">Buying paused for {formatCountdown(c.pausedUntil - now)} after a rejected order.</p>}
             {c.lastBuyAt + c.minInterval > now && <p className="muted small">Next buy allowed in {formatCountdown(c.lastBuyAt + c.minInterval - now)}.</p>}
             {c.isEarlyBird && <p className="muted small">During early bird, buys fill the early-bird pool; it&apos;s paid to early-bird buildings when the window ends (then hit Settle).</p>}
             <div className="row">
               <button className="btn small" disabled={!!busy} onClick={() => act("settle", testActions.settle)}>Settle</button>
-              <button className="btn small" disabled={!!busy || city.opsEth <= 0} onClick={() => act("ops", testActions.payOps)}>Pay ops share</button>
+              <button className="btn small" disabled={!!busy || city.opsFunds <= 0} onClick={() => act("ops", testActions.payOps)}>Pay ops share</button>
             </div>
           </div>
 

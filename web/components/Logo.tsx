@@ -1,20 +1,35 @@
-const COLOURS = ["#f2c94c", "#f2994a", "#6fcf97", "#56ccf2"];
+// Capitale's mark in Volta's language: a guilloche rosette with a four-point star,
+// next to the name set in Cormorant Garamond.
+
+function rosettePath(cx: number, cy: number, r: number, petals: number, inner = 0.55) {
+  const steps = petals * 36;
+  let d = "";
+  for (let k = 0; k <= steps; k++) {
+    const t = (k / steps) * Math.PI * 2;
+    const rr = r * inner + (r - r * inner) * Math.abs(Math.sin((petals * t) / 2));
+    d += `${k === 0 ? "M" : "L"}${(cx + Math.cos(t) * rr).toFixed(2)} ${(cy + Math.sin(t) * rr).toFixed(2)}`;
+  }
+  return d;
+}
+
+export function Rosette({ size = 44 }: { size?: number }) {
+  return (
+    <svg className="rosette" width={size} height={size} viewBox="0 0 100 100" aria-hidden>
+      <path d={rosettePath(50, 50, 46, 22)} fill="none" stroke="currentColor" strokeWidth="0.9" opacity="0.9" />
+      <path d={rosettePath(50, 50, 34, 16, 0.5)} fill="none" stroke="currentColor" strokeWidth="0.7" opacity="0.6" />
+      <path d="M50 30 C52 45 55 48 70 50 C55 52 52 55 50 70 C48 55 45 52 30 50 C45 48 48 45 50 30Z" fill="currentColor" />
+    </svg>
+  );
+}
 
 export default function Logo() {
-  const letters = "CAPITALE".split("");
-  const word = (cls: string, dx = 0, dy = 0) => (
-    <text className={cls} x={8 + dx} y={52 + dy}>
-      {letters.map((l, i) => (
-        <tspan key={i} dy={i === 0 ? 0 : i % 2 ? -4 : 4} style={cls === "logo-letter" ? { fill: COLOURS[i % 4] } : undefined}>
-          {l}
-        </tspan>
-      ))}
-    </text>
-  );
   return (
-    <svg className="logo" viewBox="0 0 300 70" role="img" aria-label="Capitale">
-      {word("logo-shadow", 2, 5)}
-      {word("logo-letter")}
-    </svg>
+    <div className="logo" role="img" aria-label="Capitale">
+      <Rosette />
+      <span className="logo-word">
+        <span className="logo-name">Capitale</span>
+        <span className="logo-kicker">on Volta · Elysium</span>
+      </span>
+    </div>
   );
 }

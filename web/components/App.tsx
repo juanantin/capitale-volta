@@ -14,16 +14,19 @@ import { MAX_BUILDINGS, TOKENS } from "../lib/config";
 import { setLive, setMode, settleIfDue, tick, ui, useCity } from "../lib/store";
 
 const TABS = [
-  { key: "build", label: "Build", icon: "🏗️" },
-  { key: "mine", label: "My Palazzo", icon: "🏠" },
-  { key: "hall", label: "Town Hall", icon: "🗳️" },
-  { key: "rank", label: "Rankings", icon: "🏆" },
-  { key: "treasury", label: "Treasury", icon: "💰" },
-  { key: "paper", label: "White Paper", icon: "📜" },
-  { key: "sindaco", label: "Il Sindaco", icon: "🎩" },
-  { key: "lab", label: "Test lab", icon: "🧪" },
+  { key: "build", label: "Build", icon: "" },
+  { key: "mine", label: "My Palazzo", icon: "" },
+  { key: "hall", label: "Town Hall", icon: "" },
+  { key: "rank", label: "Rankings", icon: "" },
+  { key: "treasury", label: "Treasury", icon: "" },
+  { key: "paper", label: "White Paper", icon: "" },
+  { key: "sindaco", label: "Il Sindaco", icon: "" },
+  { key: "lab", label: "Test lab", icon: "" },
 ] as const;
 type TabKey = (typeof TABS)[number]["key"];
+
+const compact = (n: number) =>
+  n.toLocaleString("en-US", { notation: n >= 100_000 ? "compact" : "standard", maximumFractionDigits: n >= 100_000 ? 1 : 2 });
 
 export default function App() {
   return (
@@ -78,7 +81,7 @@ function Game() {
           <button className="ca" onClick={() => { setCopied(true); setTimeout(() => setCopied(false), 1200); }}>
             CA: {copied ? "announced at launch" : "coming soon"}
           </button>
-          <div className="via">via <b>Stonks Exchange</b> · Base</div>
+          <div className="via">via <b>Volta</b> · Elysium</div>
         </div>
         <div className="top-right">
           <Logo />
@@ -88,7 +91,7 @@ function Game() {
 
       <section className="stats">
         <div className="stat"><span>Residents</span><b>{city.buildings.length.toLocaleString()}<small>/{MAX_BUILDINGS.toLocaleString()}</small></b></div>
-        <div className="stat"><span>City tax</span><b>{city.totalTaxEth.toFixed(2)} <small>ETH</small></b></div>
+        <div className="stat"><span>City tax</span><b>{compact(city.totalTax)} <small>VOLTA</small></b></div>
         <div className="stat"><span>Purchases</span><b>{city.totalPurchases}</b></div>
         <div className="stat" style={{ ["--c" as string]: D.colour }}><span>This week</span><b className="week-token">{D.token}</b></div>
         <div className="stat mode">
@@ -100,7 +103,7 @@ function Game() {
         </div>
         {city.mode === "preview" && (
           <button className={`stat live ${city.live ? "on" : ""}`} onClick={() => setLive(!city.live)} title="Simulated activity in the preview">
-            <span>Sample data</span><b>{city.live ? "● Live" : "❚❚ Paused"}</b>
+            <span>Sample data</span><b>{city.live ? "● Live" : "Paused"}</b>
           </button>
         )}
       </section>
@@ -109,7 +112,7 @@ function Game() {
         {current && (
           <>
             <div className="sheet-head">
-              <h2>{current.icon} {current.label}</h2>
+              <h2>{current.label}</h2>
               <button className="close" onClick={() => setTab(null)} aria-label="Close">×</button>
             </div>
             <div className="sheet-body">

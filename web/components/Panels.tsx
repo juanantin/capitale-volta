@@ -5,6 +5,7 @@ import { DISTRICTS, DistrictId, EARLY_BIRD_UNITS, MAX_BUILDINGS, TIERS, TOKENS, 
 import { formatCountdown } from "../lib/romeTime";
 import { approve, buildMine, claim, focus, getCity, quoteBuild, useCity, vote } from "../lib/store";
 import { describeError, testActions } from "../lib/chain";
+import { Rosette } from "./Logo";
 
 const fmt = (n: number, d = 0) => n.toLocaleString("en-US", { maximumFractionDigits: d, minimumFractionDigits: d });
 const usd = (n: number) => `$${fmt(n, n < 100 ? 2 : 0)}`;
@@ -74,7 +75,7 @@ export function BuildTab() {
     return (
       <div className="tab">
         <div className="success">
-          <div className="big">🎉 Palazzo #{done} is up!</div>
+          <div className="big">Palazzo #{done} is up!</div>
           <p>It earns a share of every purchase from now on. Claim to make it grow.</p>
           <div className="row">
             <button className="btn" onClick={() => focus(done)}>Show on map</button>
@@ -139,7 +140,7 @@ export function BuildTab() {
           <h3><span className="step">4</span> Build</h3>
           <div className="row">
             <button className="btn" disabled={city.approved || !!pending} onClick={() => run("approve", approve)}>
-              {city.approved ? "✓ Approved" : pending === "approve" ? "Confirm in wallet…" : "Approve $CAPITALE"}
+              {city.approved ? "Approved" : pending === "approve" ? "Confirm in wallet…" : "Approve $CAPITALE"}
             </button>
             <button className="btn primary" disabled={!city.approved || !invOk || full || !!pending || !!unavailable || short} onClick={() => run("build", async () => {
               const id = await buildMine(district, style, invNum || 0, maxBurnWei);
@@ -153,7 +154,7 @@ export function BuildTab() {
           </div>
           <p className="muted small">Approve once. The build reverts if the burn would be above your max (quote + 2%). Tokens go to the burn address.</p>
           {unavailable && <p className="warn small">{unavailable}</p>}
-          {short && <p className="warn small">Not enough test $CAPITALE: get some in the 🧪 Test lab.</p>}
+          {short && <p className="warn small">Not enough test $CAPITALE: get some in the Test lab.</p>}
           <TxError error={error} />
         </>
       )}
@@ -162,15 +163,22 @@ export function BuildTab() {
   );
 }
 
-function StyleIcon({ district, style }: { district: number; style: number }) {
-  const D = DISTRICTS[district];
-  const roof = style === 1 ? <path d="M6 20 L20 8 L34 20 Z" fill="#e07a5f" stroke="#5b4636" strokeWidth="1.5" /> : style === 2 ? <ellipse cx="20" cy="18" rx="9" ry="8" fill={D.light} stroke="#5b4636" strokeWidth="1.5" /> : <path d="M20 4 V14" stroke="#5b4636" strokeWidth="1.5" />;
+function StyleIcon({ style }: { district: number; style: number }) {
+  // Line-drawn, engraving-style icons in the city's ink (set by CSS via currentColor).
+  const roof =
+    style === 1 ? (
+      <path d="M6 20 L20 8 L34 20" />
+    ) : style === 2 ? (
+      <path d="M11 20 A9 9 0 0 1 29 20 M20 11 V6" />
+    ) : (
+      <path d="M20 4 V10 M14 10 H26" />
+    );
   return (
-    <svg viewBox="0 0 40 44" width="44" height="48" aria-hidden>
-      <rect x="8" y={style === 0 ? 10 : 20} width="24" height={style === 0 ? 30 : 20} rx="2" fill={D.colour} stroke="#5b4636" strokeWidth="1.5" />
+    <svg viewBox="0 0 40 44" width="44" height="48" aria-hidden fill="none" stroke="currentColor" strokeWidth="1.2">
+      <rect x="8" y={style === 0 ? 10 : 20} width="24" height={style === 0 ? 30 : 20} />
       {roof}
-      <rect x="13" y="28" width="5" height="5" fill="#fff6d8" />
-      <rect x="22" y="28" width="5" height="5" fill="#fff6d8" />
+      <path d="M13 28 h5 M22 28 h5 M13 33 h5 M22 33 h5" opacity="0.7" />
+      <path d="M2 40 H38" opacity="0.5" />
     </svg>
   );
 }
@@ -240,7 +248,7 @@ export function MyPalazzoTab() {
               <div className="muted small">{usd(b.claimedUsd)} claimed · next floor at {usd(hi)}</div>
               <div className="pal-foot">
                 <span>Pending <b>{usd(b.pendingUsd)}</b></span>
-                <span className={b.votedWeek === city.week ? "ok" : "warn"}>{b.votedWeek === city.week ? "✓ Voted" : "Not voted"}</span>
+                <span className={b.votedWeek === city.week ? "ok" : "warn"}>{b.votedWeek === city.week ? "Voted" : "Not voted"}</span>
                 <button className="btn small" disabled={b.pendingUsd <= 0 || !!pending} onClick={() => run(`c${b.id}`, () => claim([b.id]))}>
                   {pending === `c${b.id}` ? "…" : "Claim"}
                 </button>
@@ -313,7 +321,7 @@ export function RankingsTab() {
           <div key={d.id} className="vote-row" style={{ ["--c" as string]: d.colour }}>
             <div className="vote-label">
               <b>{d.city}</b> <span className="muted small">{d.landmark}</span>
-              {city.newBuilds[d.id] === max && <span className="tag lead">👑 LEADING</span>}
+              {city.newBuilds[d.id] === max && <span className="tag lead">LEADING</span>}
             </div>
             <div className="bar big"><i style={{ width: `${(city.newBuilds[d.id] / max) * 100}%` }} /><span>{city.newBuilds[d.id]} new</span></div>
           </div>
@@ -331,7 +339,7 @@ export function RankingsTab() {
           </li>
         ))}
       </ol>
-      <h3>Most invites 🎆</h3>
+      <h3>Most invites </h3>
       <ol className="rank">
         {inviters.map((b, i) => (
           <li key={b.id} onClick={() => focus(b.id)}>
@@ -355,29 +363,29 @@ export function TreasuryTab() {
   return (
     <div className="tab">
       <div className="stat-grid">
-        <div><span className="muted">Total city tax</span><b>{fmt(city.totalTaxEth, 2)} ETH</b></div>
+        <div><span className="muted">Total city tax</span><b>{fmt(city.totalTax)} VOLTA</b></div>
         <div><span className="muted">Purchases</span><b>{fmt(city.totalPurchases)}</b></div>
         <div><span className="muted">Bought for residents</span><b>{usd(city.totalBoughtUsd)}</b></div>
-        <div><span className="muted">Paid to ops</span><b>{fmt(city.opsPaidEth, 2)} ETH</b></div>
+        <div><span className="muted">Paid to ops</span><b>{fmt(city.opsPaid)} VOLTA</b></div>
       </div>
       <h3>Where the tax goes</h3>
       <div className="split">
-        <i style={{ flex: 70, background: "#6fcf97" }}>70% residents</i>
-        <i style={{ flex: 15, background: "#f2c94c" }}>15% street</i>
-        <i style={{ flex: 15, background: "#c9c2ea" }}>15% ops</i>
+        <i style={{ flex: 70, background: "#80e3ba" }}>70% residents</i>
+        <i style={{ flex: 15, background: "#d9b45a" }}>15% street</i>
+        <i style={{ flex: 15, background: "#94b7a7" }}>15% ops</i>
       </div>
-      <p className="muted small">The 1% Stonks Exchange fee on $CAPITALE (creator share) flows to the vault in ETH. 85% buys this week&apos;s token; 15% stays in ETH for operations (2-of-3 multisig).</p>
+      <p className="muted small">$CAPITALE trades on Volta, paired with $VOLTA. The creator share of its trading fee is paid to the vault in VOLTA. 85% buys this week&apos;s token (VOLTA itself is simply kept); 15% stays in VOLTA for operations (2-of-3 multisig).</p>
       <h3>Waiting to buy</h3>
       <div className="stat-grid">
-        <div><span className="muted">Residents</span><b>{fmt(city.residentsEth, 3)} ETH</b></div>
-        <div><span className="muted">Street pool</span><b>{fmt(city.streetEth, 3)} ETH</b></div>
-        <div><span className="muted">Ops</span><b>{fmt(city.opsEth, 3)} ETH</b></div>
+        <div><span className="muted">Residents</span><b>{fmt(city.residentsFunds)} VOLTA</b></div>
+        <div><span className="muted">Street pool</span><b>{fmt(city.streetFunds)} VOLTA</b></div>
+        <div><span className="muted">Ops</span><b>{fmt(city.opsFunds)} VOLTA</b></div>
       </div>
       <h3>Buy rules</h3>
       <ul className="rules">
-        <li>Buys once at least <b>0.1 ETH</b> is waiting, at most <b>0.6 ETH</b> per order.</li>
+        <li>Buys once enough VOLTA is waiting (a minimum order), capped per order so each buy stays small next to the token&apos;s pool.</li>
         <li>One order at a time, at least <b>10 minutes</b> apart; the keeper checks every hour.</li>
-        <li>Price checked against the 30-minute Uniswap average. More than <b>4%</b> off: order rejected, ETH stays, buying pauses <b>6 hours</b>.</li>
+        <li>Price checked against the pool&apos;s average price on Volta. More than <b>4%</b> off: order rejected, the VOLTA stays, buying pauses <b>6 hours</b>.</li>
         <li>Nothing bought for 24h: the keeper rests. <b>Anyone</b> can restart it with requestBuy().</li>
       </ul>
       <h3>Holdings</h3>
@@ -399,7 +407,7 @@ export function TreasuryTab() {
             <tr key={i}>
               <td className="muted small">{Math.max(1, Math.round((now - p.at) / 60))} min ago</td>
               <td>{TOKENS[p.token].token}</td>
-              <td className="num">{fmt(p.eth, 3)} ETH</td>
+              <td className="num">{fmt(p.amount)} VOLTA</td>
               <td className="num muted">{usd(p.usd)}</td>
             </tr>
           ))}
@@ -421,14 +429,7 @@ export function SindacoTab() {
   return (
     <div className="tab">
       <div className="sindaco-hero">
-        <svg viewBox="0 0 80 80" width="72" height="72" aria-hidden>
-          <circle cx="40" cy="40" r="38" fill="#fde4ea" stroke="#5b4636" strokeWidth="3" />
-          <circle cx="40" cy="34" r="14" fill="#f6d2b8" stroke="#5b4636" strokeWidth="2.5" />
-          <path d="M22 70 Q40 46 58 70" fill="#56ccf2" stroke="#5b4636" strokeWidth="2.5" />
-          <path d="M28 66 L40 52 L52 66" fill="none" stroke="#3fae5b" strokeWidth="4" />
-          <path d="M26 26 Q40 8 54 26 Z" fill="#5b4636" />
-          <path d="M33 42 Q40 46 47 42" stroke="#5b4636" strokeWidth="2" fill="none" />
-        </svg>
+        <Rosette size={72} />
         <div>
           <div className="big">Il Sindaco</div>
           <div className="muted">Palazzo del Sindaco · building #0</div>
@@ -452,7 +453,7 @@ export function SindacoTab() {
       <h3>Links</h3>
       <ul className="rules">
         <li>X / Telegram: announced at launch.</li>
-        <li>Contracts are open source and verified on Basescan at launch.</li>
+        <li>Contracts are open source; their ABIs are published at launch (Elysium explorers cannot verify contracts yet).</li>
       </ul>
       <p className="muted small">Capitale is an experimental game. Reward tokens can lose value. Contracts are not yet audited. Nothing here is financial advice.</p>
     </div>

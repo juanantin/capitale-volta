@@ -17,6 +17,8 @@ import {
   drawCottage,
   floorsForLevel,
   districtPalette,
+  rosette,
+  V,
 } from "./art";
 import { DISTRICTS, levelForUsd } from "./config";
 import { BUILDING_SCALE, DISTRICT_PLACES, LANDMARK_SCALE, PLACES, PLOT_SPACING, Pt, RINGS, TILT, WORLD, onLand, plotPosition } from "./plots";
@@ -26,10 +28,12 @@ const RES = 3;
 const K = 1 / RES;
 import { ui, type Building } from "./store";
 
-const SEA = 0x7fd6d0;
-const SAND = 0xf3dfa2;
-const CLIFF = 0xd9b97a;
-const GRASS = 0xa8dd8f;
+// Volta palette: deep forest sea, forest land, mint linework.
+const SEA = V.void;
+const LAND = V.forest;
+const CLIFF = 0x020c09;
+const MINT = V.mint;
+const INKS = [0xd9b45a, 0xe0874f, 0xe0648f, 0x5b8def, 0x80e3ba, 0xe7f5ed];
 
 interface Baked {
   texture: Texture;
@@ -52,6 +56,7 @@ interface Particle {
   life: number;
   max: number;
   grow: number;
+  alpha: number;
 }
 
 const easeOutBack = (p: number) => {
@@ -133,7 +138,7 @@ export class CityScene {
     const sea = new Container();
     this.world.addChild(sea, this.drawIsland(), this.ground, this.objects, this.fx, this.clouds);
     this.objects.sortableChildren = true;
-    this.ring.ellipse(0, 0, 80, 40).stroke({ width: 8, color: 0xffffff }).ellipse(0, 0, 66, 33).fill({ color: 0xffffff, alpha: 0.35 });
+    this.ring.ellipse(0, 0, 80, 40).stroke({ width: 4, color: MINT }).ellipse(0, 0, 70, 35).stroke({ width: 1.5, color: V.ivory, alpha: 0.7 }).ellipse(0, 0, 66, 33).fill({ color: MINT, alpha: 0.12 });
     this.ring.visible = false;
     this.ground.addChild(this.ring);
     this.makeWaves(sea);
@@ -221,11 +226,11 @@ export class CityScene {
       const g = new Graphics();
       const p = districtPalette(d);
       const a = 12;
-      g.ellipse(3, 2, a + 4, a / 2 + 3).fill({ color: 0x2f5d3a, alpha: 0.18 });
+      g.ellipse(3, 2, a + 4, a / 2 + 3).fill({ color: 0x000000, alpha: 0.35 });
       for (let k = 0; k < extra; k++) {
         const b = -k * 5;
-        g.poly([-a, b, 0, b + a / 2, 0, b + a / 2 - 5, -a, b - 5]).fill(p.lit).stroke({ width: 1.2, color: 0x5b4636 });
-        g.poly([0, b + a / 2, a, b, a, b - 5, 0, b + a / 2 - 5]).fill(p.shade).stroke({ width: 1.2, color: 0x5b4636 });
+        g.poly([-a, b, 0, b + a / 2, 0, b + a / 2 - 5, -a, b - 5]).fill(p.lit).stroke({ width: 1.2, color: MINT });
+        g.poly([0, b + a / 2, a, b, a, b - 5, 0, b + a / 2 - 5]).fill(p.shade).stroke({ width: 1.2, color: MINT });
       }
       c.addChild(g);
       const s = new Sprite(real);
@@ -253,29 +258,51 @@ export class CityScene {
 
   private drawIsland(): Container {
     const c = new Container();
-    const foam = new Graphics();
+    // Engraved sea: fine horizontal lines, like the sky in Volta's frieze.
+    const sea = new Graphics();
+    for (let y = -400; y < WORLD.height + 400; y += 9) sea.moveTo(-600, y).lineTo(WORLD.width + 600, y);
+    sea.stroke({ width: 0.8, color: MINT, alpha: 0.06 });
+    // Coast drawn as layered contour lines (a thin mint line on each band's edge).
+    const contours = new Graphics();
+    for (const [w, alpha] of [
+      [86, 0.12],
+      [60, 0.2],
+      [36, 0.32],
+    ] as const) {
+      for (const ring of RINGS) contours.poly(ring.flat()).stroke({ width: w, color: MINT, alpha, join: "round" });
+      for (const ring of RINGS) contours.poly(ring.flat()).stroke({ width: w - 3, color: SEA, join: "round" });
+    }
     const cliff = new Graphics();
-    const sand = new Graphics();
-    const grass = new Graphics();
+    const land = new Graphics();
+    const landMask = new Graphics();
     for (const ring of RINGS) {
       const flat = ring.flat();
-      const shifted = ring.flatMap(([x, y]) => [x, y + 14]);
-      foam.poly(flat).stroke({ width: 44, color: 0xffffff, alpha: 0.28, join: "round" });
-      cliff.poly(shifted).fill(CLIFF).stroke({ width: 22, color: CLIFF, join: "round" });
-      sand.poly(flat).fill(SAND).stroke({ width: 22, color: SAND, join: "round" });
-      grass.poly(flat).fill(GRASS).stroke({ width: 4, color: 0x96cf7d, join: "round" });
+      cliff.poly(ring.flatMap(([x, y]) => [x, y + 14])).fill(CLIFF).stroke({ width: 6, color: CLIFF, join: "round" });
+      land.poly(flat).fill(LAND).stroke({ width: 2.2, color: MINT, join: "round" });
+      landMask.poly(flat).fill(0xffffff);
     }
-    c.addChild(foam, cliff, sand, grass);
-    // soft piazza under each landmark and the Mayor
-    const plaza = new Graphics();
-    DISTRICT_PLACES.forEach((k, i) => {
-      const [x, y] = PLACES[k];
-      plaza.ellipse(x, y, 150, 150 * TILT).fill({ color: parseInt(DISTRICTS[i].light.slice(1), 16), alpha: 0.75 });
-      plaza.ellipse(x, y, 150, 150 * TILT).stroke({ width: 3, color: 0xffffff, alpha: 0.7 });
-    });
-    const [mx, my] = PLACES.mayor;
-    plaza.ellipse(mx, my, 150, 150 * TILT).fill({ color: 0xfde4ea, alpha: 0.85 }).stroke({ width: 3, color: 0xffffff });
-    c.addChild(plaza);
+    // Diagonal hatching across the land, clipped to the coastline.
+    const hatch = new Graphics();
+    for (let x = -WORLD.height; x < WORLD.width; x += 14) hatch.moveTo(x, 0).lineTo(x + WORLD.height, WORLD.height);
+    hatch.stroke({ width: 0.9, color: MINT, alpha: 0.07 });
+    hatch.mask = landMask;
+    c.addChild(sea, contours, cliff, land, landMask, hatch);
+    // A guilloche rosette in each city's ink around its landmark, and a mint one for the Mayor.
+    const rings: [Pt, number][] = [
+      ...DISTRICT_PLACES.map((k, i) => [PLACES[k], parseInt(DISTRICTS[i].colour.slice(1), 16)] as [Pt, number]),
+      [PLACES.mayor, MINT],
+    ];
+    for (const [[x, y], color] of rings) {
+      const g = new Graphics();
+      g.circle(0, 0, 150).fill({ color, alpha: 0.06 });
+      rosette(g, 0, 0, 150, 24, color, 1.4, 0.55);
+      rosette(g, 0, 0, 118, 18, color, 1, 0.35);
+      g.circle(0, 0, 150).stroke({ width: 1.6, color, alpha: 0.8 });
+      g.circle(0, 0, 156).stroke({ width: 0.8, color, alpha: 0.5 });
+      g.position.set(x, y);
+      g.scale.set(1, TILT);
+      c.addChild(g);
+    }
     return c;
   }
 
@@ -369,7 +396,7 @@ export class CityScene {
 
   private makeWaves(layer: Container) {
     const tex = this.bakeTexture((g) =>
-      g.moveTo(-8, 0).quadraticCurveTo(-4, -3, 0, 0).quadraticCurveTo(4, -3, 8, 0).stroke({ width: 2, color: 0xffffff, cap: "round" }),
+      g.moveTo(-8, 0).quadraticCurveTo(-4, -3, 0, 0).quadraticCurveTo(4, -3, 8, 0).stroke({ width: 1.4, color: MINT, cap: "round" }),
     );
     let tries = 0;
     while (this.waves.length < 140 && tries++ < 3000) {
@@ -386,7 +413,7 @@ export class CityScene {
   }
 
   private makeBoats(layer: Container) {
-    const sails = [0xffffff, 0xf2c94c, 0xf2994a, 0x56ccf2, 0xe0524f];
+    const sails = INKS;
     const orbitOk = (c: Pt, r: number) => {
       for (let k = 0; k < 24; k++) {
         const a = (k / 24) * Math.PI * 2;
@@ -433,7 +460,7 @@ export class CityScene {
     for (let i = 0; i < 7; i++) {
       const c = new Container();
       const shadow = new Graphics();
-      shadow.ellipse(0, 90, 46, 18).fill({ color: 0x1f4d40, alpha: 0.07 });
+      shadow.visible = false;
       const g = new Graphics();
       drawCloud(g);
       g.alpha = 0.92;
@@ -489,7 +516,7 @@ export class CityScene {
     this.tween(650, (t) => s.scale.set(k * Math.max(0, easeOutBack(t))));
     for (let k = 0; k < 8; k++) {
       const a = (k / 8) * Math.PI * 2;
-      this.spawn(p[0], p[1], Math.cos(a) * 120, Math.sin(a) * 50 - 20, 0, 0.8, 0xf3e7c9, 1.5, 2.5);
+      this.spawn(p[0], p[1], Math.cos(a) * 120, Math.sin(a) * 50 - 20, 0, 0.8, V.mint, 1.5, 2.5, undefined, 0.3);
     }
   }
 
@@ -505,7 +532,7 @@ export class CityScene {
       s.scale.set(k * (1 + 0.12 * Math.sin(t * Math.PI) * (1 - t)), k * (0.75 + 0.25 * easeOutBack(t)));
     });
     for (let k = 0; k < 10; k++) {
-      this.spawn(s.x + (Math.random() - 0.5) * 100, s.y - 50 - Math.random() * 130, (Math.random() - 0.5) * 70, -100 - Math.random() * 80, 0, 1.1, 0xfff07a, 1.2, 0, this.star);
+      this.spawn(s.x + (Math.random() - 0.5) * 100, s.y - 50 - Math.random() * 130, (Math.random() - 0.5) * 70, -100 - Math.random() * 80, 0, 1.1, MINT, 1.2, 0, this.star);
     }
   }
 
@@ -533,7 +560,7 @@ export class CityScene {
   burstAt(id: number) {
     const s = this.sprites.get(id);
     if (!s) return;
-    const colours = [0xf2c94c, 0xf2994a, 0x6fcf97, 0x56ccf2, 0xff7eb6, 0xffffff];
+    const colours = INKS;
     const top = s.y - s.height - 20;
     for (let k = 0; k < 22; k++) {
       const a = (k / 22) * Math.PI * 2;
@@ -544,7 +571,7 @@ export class CityScene {
 
   // ─────────── particles & tweens ───────────
 
-  private spawn(x: number, y: number, vx: number, vy: number, g: number, life: number, color: number, scale: number, grow: number, tex?: Texture) {
+  private spawn(x: number, y: number, vx: number, vy: number, g: number, life: number, color: number, scale: number, grow: number, tex?: Texture, alpha = 1) {
     const s = this.pool.pop() ?? new Sprite();
     s.texture = tex ?? this.dot;
     s.anchor.set(0.5);
@@ -554,7 +581,7 @@ export class CityScene {
     s.alpha = 1;
     s.visible = true;
     this.fx.addChild(s);
-    this.particles.push({ s, vx, vy, g, life, max: life, grow });
+    this.particles.push({ s, vx, vy, g, life, max: life, grow, alpha });
   }
 
   private tween(ms: number, step: (p: number) => void, done?: () => void): Tween {
@@ -582,7 +609,7 @@ export class CityScene {
       pt.s.x += pt.vx * dt;
       pt.s.y += pt.vy * dt;
       pt.s.scale.set(pt.s.scale.x + pt.grow * dt);
-      pt.s.alpha = Math.max(0, pt.life / pt.max);
+      pt.s.alpha = Math.max(0, pt.life / pt.max) * pt.alpha;
       if (pt.life > 0) return true;
       pt.s.visible = false;
       this.fx.removeChild(pt.s);
@@ -595,7 +622,7 @@ export class CityScene {
     for (const w of this.waves) {
       w.t += dt;
       const ph = (w.t % w.period) / w.period;
-      w.s.alpha = Math.sin(ph * Math.PI) * 0.7;
+      w.s.alpha = Math.sin(ph * Math.PI) * 0.4;
       w.s.x += dt * 2;
     }
     for (const b of this.boats) {
@@ -617,7 +644,7 @@ export class CityScene {
       e.acc += dt * e.rate;
       while (e.acc >= 1) {
         e.acc -= 1;
-        this.spawn(e.p[0] + (Math.random() - 0.5) * 4, e.p[1], (Math.random() - 0.2) * 6, e.big ? -40 : -25, 0, e.big ? 4.5 : 2.4, e.big ? 0xe9e4df : 0xf4f1ee, e.big ? 2 : 0.7, e.big ? 1 : 0.5);
+        this.spawn(e.p[0] + (Math.random() - 0.5) * 4, e.p[1], (Math.random() - 0.2) * 6, e.big ? -40 : -25, 0, e.big ? 4.5 : 2.4, e.big ? V.muted : V.ivory, e.big ? 2 : 0.7, e.big ? 1 : 0.5, undefined, e.big ? 0.22 : 0.3);
       }
     }
     this.fireworkAcc += dt;
