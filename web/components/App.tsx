@@ -1,11 +1,14 @@
 "use client";
 
+import { ink } from "../lib/theme";
 import { useEffect, useState } from "react";
 import { useAccount } from "wagmi";
 import MapView from "./MapView";
 import Providers from "./Providers";
 import TestLab from "./TestLab";
 import WalletButton from "./WalletButton";
+import ThemeToggle from "./ThemeToggle";
+import { useTheme } from "../lib/theme";
 import { connectCity, savedCity } from "../lib/chain";
 import Logo from "./Logo";
 import WhitePaper from "./WhitePaper";
@@ -52,6 +55,7 @@ function ChainSync() {
 
 function Game() {
   const city = useCity();
+  useTheme(); // re-render every panel when the theme changes (city and token inks)
   const [tab, setTab] = useState<TabKey | null>(null);
   const [copied, setCopied] = useState(false);
 
@@ -85,7 +89,10 @@ function Game() {
         </div>
         <div className="top-right">
           <Logo />
-          <WalletButton />
+          <div className="row-tight">
+            <ThemeToggle />
+            <WalletButton />
+          </div>
         </div>
       </header>
 
@@ -93,7 +100,7 @@ function Game() {
         <div className="stat"><span>Residents</span><b>{city.buildings.length.toLocaleString()}<small>/{MAX_BUILDINGS.toLocaleString()}</small></b></div>
         <div className="stat"><span>City tax</span><b>{compact(city.totalTax)} <small>VOLTA</small></b></div>
         <div className="stat"><span>Purchases</span><b>{city.totalPurchases}</b></div>
-        <div className="stat" style={{ ["--c" as string]: D.colour }}><span>This week</span><b className="week-token">{D.token}</b></div>
+        <div className="stat" style={{ ["--c" as string]: ink(D) }}><span>This week</span><b className="week-token">{D.token}</b></div>
         <div className="stat mode">
           <span>Mode</span>
           <div className="seg">

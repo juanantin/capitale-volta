@@ -1210,3 +1210,107 @@ a {
     transition: none !important;
   }
 }
+
+/* ─────────── light ("clear") theme: Volta's light palette ─────────── */
+
+:root[data-theme="light"] {
+  --void: #edf5f2;
+  --plate: #f6faf8;
+  --forest: #dfebe5;
+  --panel: #e2ede7;
+  --emerald: #8db3a1;
+  --mint: #08704b;
+  --ivory: #0b2a21;
+  --muted: #476658;
+  --border: #c4d7cd;
+  --up: #08704b;
+  --down: #a8402a;
+  --warn: #96500a;
+  --glow: 8 112 75;
+  --panel-from: #fbfdfcf0;
+  --panel-to: #f1f7f4f0;
+  --panel-shadow: 0 1px 0 #ffffffe6 inset, 0 22px 50px -34px #0b2a2159, 0 2px 6px -3px #0b2a2114;
+  color-scheme: light;
+}
+
+:root[data-theme="light"] .sheet {
+  background: linear-gradient(180deg, #fbfdfcf8, #f1f7f4fb);
+}
+
+:root[data-theme="light"] .btn.primary,
+:root[data-theme="light"] .btn.wallet,
+:root[data-theme="light"] .seg button.on,
+:root[data-theme="light"] .step,
+:root[data-theme="light"] .tag,
+:root[data-theme="light"] .this-week,
+:root[data-theme="light"] .split i {
+  color: #f3f9f6;
+}
+
+:root[data-theme="light"] .btn.wallet.on {
+  color: var(--mint);
+}
+
+/* ─────────── theme switch ─────────── */
+
+.row-tight {
+  display: flex;
+  gap: 6px;
+}
+
+.theme-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 9px;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ivory);
+  background: linear-gradient(180deg, var(--panel-from), var(--panel-to));
+  border: 1px solid var(--border);
+  transition: border-color 0.15s, color 0.15s;
+}
+
+.theme-toggle:hover {
+  border-color: var(--mint);
+  color: var(--mint);
+}
+
+html,
+body,
+.sheet,
+.tabs,
+.stat,
+.token-card,
+.banner,
+.building-card {
+  transition: background-color 0.25s, color 0.25s, border-color 0.25s;
+}
+
+@media (max-width: 420px) {
+  .theme-toggle {
+    padding: 5px 7px;
+  }
+
+  .theme-toggle span {
+    display: none;
+  }
+
+  .btn.wallet {
+    padding: 6px 9px;
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    white-space: nowrap;
+  }
+
+  .via {
+    white-space: nowrap;
+    letter-spacing: 0.1em;
+  }
+
+  .logo-name {
+    font-size: 24px;
+  }
+}

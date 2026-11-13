@@ -1,5 +1,6 @@
 "use client";
 
+import { ink } from "../lib/theme";
 import { useEffect, useMemo, useState } from "react";
 import { DISTRICTS, DistrictId, EARLY_BIRD_UNITS, MAX_BUILDINGS, TIERS, TOKENS, levelForUsd, usdForNextLevel } from "../lib/config";
 import { formatCountdown } from "../lib/romeTime";
@@ -107,7 +108,7 @@ export function BuildTab() {
       <h3><span className="step">1</span> Choose a city</h3>
       <div className="district-grid">
         {DISTRICTS.map((d) => (
-          <button key={d.id} className={`district-btn ${district === d.id ? "on" : ""}`} style={{ ["--c" as string]: d.colour, ["--cl" as string]: d.light }} onClick={() => { setDistrict(d.id); setStyle(null); }}>
+          <button key={d.id} className={`district-btn ${district === d.id ? "on" : ""}`} style={{ ["--c" as string]: ink(d), ["--cl" as string]: d.light }} onClick={() => { setDistrict(d.id); setStyle(null); }}>
             <span className="dt">{d.city}</span>
             <span className="dc">{d.landmark}</span>
             <span className="dn">{fmt(city.districtCount[d.id] ?? 0)} built · {city.newBuilds[d.id] ?? 0} this week</span>
@@ -121,7 +122,7 @@ export function BuildTab() {
           <h3><span className="step">2</span> Choose a style <span className="muted small">(permanent)</span></h3>
           <div className="style-grid">
             {DISTRICTS[district].styles.map((name, i) => (
-              <button key={name} className={`style-btn ${style === i ? "on" : ""}`} style={{ ["--c" as string]: DISTRICTS[district].colour }} onClick={() => setStyle(i as 0 | 1 | 2)}>
+              <button key={name} className={`style-btn ${style === i ? "on" : ""}`} style={{ ["--c" as string]: ink(DISTRICTS[district]) }} onClick={() => setStyle(i as 0 | 1 | 2)}>
                 <StyleIcon district={district} style={i} />
                 <span>{name}</span>
               </button>
@@ -236,7 +237,7 @@ export function MyPalazzoTab() {
           const hi = usdForNextLevel(lvl);
           const pct = Math.min(100, ((b.claimedUsd - lo) / (hi - lo)) * 100);
           return (
-            <div key={b.id} className="pal-card" style={{ ["--c" as string]: D.colour }}>
+            <div key={b.id} className="pal-card" style={{ ["--c" as string]: ink(D) }}>
               <button className="pal-head" onClick={() => focus(b.id)}>
                 <span className="lvl">L{lvl}</span>
                 <span>
@@ -284,7 +285,7 @@ export function TownHallTab() {
           const v = city.votes[d.id] ?? 0;
           const pct = total ? (v / total) * 100 : 0;
           return (
-            <div key={d.id} className="vote-row" style={{ ["--c" as string]: d.colour }}>
+            <div key={d.id} className="vote-row" style={{ ["--c" as string]: ink(d) }}>
               <div className="vote-label">
                 <b>{d.token}</b> <span className="muted small">{d.symbol}</span>
                 {city.currentToken === d.id && <span className="tag">THIS WEEK</span>}
@@ -318,7 +319,7 @@ export function RankingsTab() {
       <p className="muted small">The city with the most new buildings wins this week&apos;s 15% street pool (paid in this week&apos;s token), shared by all its buildings. Ends in {formatCountdown(city.weekEnd - now)}.</p>
       <div className="votes">
         {DISTRICTS.map((d) => (
-          <div key={d.id} className="vote-row" style={{ ["--c" as string]: d.colour }}>
+          <div key={d.id} className="vote-row" style={{ ["--c" as string]: ink(d) }}>
             <div className="vote-label">
               <b>{d.city}</b> <span className="muted small">{d.landmark}</span>
               {city.newBuilds[d.id] === max && <span className="tag lead">LEADING</span>}
@@ -332,7 +333,7 @@ export function RankingsTab() {
         {tallest.map((b, i) => (
           <li key={b.id} onClick={() => focus(b.id)}>
             <span className="pos">{i + 1}</span>
-            <span className="dot" style={{ background: DISTRICTS[b.district].colour }} />
+            <span className="dot" style={{ background: ink(DISTRICTS[b.district]) }} />
             <span>#{b.id} · {DISTRICTS[b.district].city}</span>
             <b>L{levelForUsd(b.claimedUsd)}</b>
             <span className="muted small">{usd(b.claimedUsd)}</span>
@@ -344,7 +345,7 @@ export function RankingsTab() {
         {inviters.map((b, i) => (
           <li key={b.id} onClick={() => focus(b.id)}>
             <span className="pos">{i + 1}</span>
-            <span className="dot" style={{ background: DISTRICTS[b.district].colour }} />
+            <span className="dot" style={{ background: ink(DISTRICTS[b.district]) }} />
             <span>#{b.id} · {DISTRICTS[b.district].city}</span>
             <b>{b.invites}</b>
             <span className="muted small">invites</span>
@@ -393,7 +394,7 @@ export function TreasuryTab() {
         <tbody>
           {TOKENS.map((d) => (
             <tr key={d.id}>
-              <td><span className="dot" style={{ background: d.colour }} /> {d.token}</td>
+              <td><span className="dot" style={{ background: ink(d) }} /> {d.token}</td>
               <td className="num">{fmt(city.holdings[d.id], city.holdings[d.id] < 10_000 ? 2 : 0)}</td>
               <td className="num muted">{usd(city.holdings[d.id] * city.tokenUsd[d.id])}</td>
             </tr>

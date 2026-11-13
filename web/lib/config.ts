@@ -32,13 +32,15 @@ export interface RewardToken {
   token: string;
   symbol: string;
   colour: string;
+  /** Darker ink for the light theme. */
+  colourLight: string;
   tokenAddress: `0x${string}`;
 }
 
 export const TOKENS: RewardToken[] = [
-  { id: 0, token: "VOLTA", symbol: "VOLTA", colour: "#80e3ba", tokenAddress: "0x0f79931689Af199e7CF868ed1107bBA2C83c68f7" },
-  { id: 1, token: "SENT", symbol: "SENT", colour: "#e0a35f", tokenAddress: "0xA713a15b85Cab304F9e2fbc649440B5e3AB8a8D4" },
-  { id: 2, token: "VOID", symbol: "VOID", colour: "#b59ce8", tokenAddress: "0xD31B21Cb80E431AC996269deC31A40fCf048B77f" },
+  { id: 0, token: "VOLTA", symbol: "VOLTA", colour: "#80e3ba", colourLight: "#08704b", tokenAddress: "0x0f79931689Af199e7CF868ed1107bBA2C83c68f7" },
+  { id: 1, token: "SENT", symbol: "SENT", colour: "#e0a35f", colourLight: "#a8621a", tokenAddress: "0xA713a15b85Cab304F9e2fbc649440B5e3AB8a8D4" },
+  { id: 2, token: "VOID", symbol: "VOID", colour: "#b59ce8", colourLight: "#7a52b8", tokenAddress: "0xD31B21Cb80E431AC996269deC31A40fCf048B77f" },
 ];
 
 export const MAX_BUILDINGS = 3000;

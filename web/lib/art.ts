@@ -4,22 +4,71 @@
 
 import { Graphics } from "pixi.js";
 import { DISTRICTS } from "./config";
+import type { Theme } from "./theme";
 
-/** Volta palette (dark theme). */
-export const V = {
-  void: 0x041510, // sea / page
-  plate: 0x08201a,
-  forest: 0x0b2a21,
-  panel: 0x0f3529,
-  emerald: 0x245746,
-  mint: 0x80e3ba,
-  ivory: 0xe7f5ed,
-  muted: 0x94b7a7,
+/** Volta palette by role. Dark: mint lines on forest. Light: forest ink on mint paper. */
+const PALETTES = {
+  dark: {
+    void: 0x041510, // sea / page
+    plate: 0x08201a, // shaded faces
+    forest: 0x0b2a21, // land
+    panel: 0x0f3529, // lit faces
+    panel2: 0x123a2e, // lit stone (Duomo, belfry)
+    emerald: 0x245746,
+    mint: 0x80e3ba, // linework
+    ivory: 0xe7f5ed, // highlights
+    muted: 0x94b7a7,
+    cliff: 0x020c09,
+    shadow: 0x000000,
+    shadowAlpha: 0.35,
+    lineAlpha: 0.06, // sea and land engraving
+  },
+  light: {
+    void: 0xe3ede8,
+    plate: 0xd5e4dc,
+    forest: 0xf4f9f6,
+    panel: 0xfbfdfc,
+    panel2: 0xeef5f1,
+    emerald: 0x8db3a1,
+    mint: 0x08704b,
+    ivory: 0x0b2a21,
+    muted: 0x476658,
+    cliff: 0xbfd3c8,
+    shadow: 0x0b2a21,
+    shadowAlpha: 0.12,
+    lineAlpha: 0.1,
+  },
 };
 
-export const INK = V.mint;
-const OUTLINE = { width: 1.2, color: V.mint, join: "round" as const };
-const FINE = { width: 0.6, color: V.mint, alpha: 0.45 };
+/** Current palette; switched by applyArtTheme (textures must be re-baked afterwards). */
+export const V = { ...PALETTES.dark };
+let artTheme: Theme = "dark";
+
+export function applyArtTheme(t: Theme) {
+  artTheme = t;
+  Object.assign(V, PALETTES[t]);
+}
+
+/** A city's ink for the current theme (light mode uses its darker ink). */
+export function cityInk(d: number): number {
+  const D = DISTRICTS[d];
+  return hex(artTheme === "light" ? D.dark : D.colour);
+}
+
+const OUTLINE = {
+  width: 1.2,
+  get color() {
+    return V.mint;
+  },
+  join: "round" as const,
+};
+const FINE = {
+  width: 0.6,
+  get color() {
+    return V.mint;
+  },
+  alpha: 0.45,
+};
 
 const hex = (c: string) => parseInt(c.slice(1), 16);
 
@@ -43,7 +92,7 @@ export interface Palette {
 
 /** Walls are engraved forest green for every city; the city's ink colours the roof and top. */
 export function districtPalette(d: number): Palette {
-  const ink = hex(DISTRICTS[d].colour);
+  const ink = cityInk(d);
   return {
     lit: V.panel,
     shade: V.plate,
@@ -55,15 +104,17 @@ export function districtPalette(d: number): Palette {
   };
 }
 
-export const MAYOR_PALETTE: Palette = {
-  lit: 0x12402f,
-  shade: 0x0a261d,
-  top: 0x1a4f3d,
-  roof: mix(V.mint, V.forest, 0.25),
-  roofShade: mix(V.mint, V.plate, 0.55),
-  window: V.ivory,
-  accent: V.mint,
-};
+export function mayorPalette(): Palette {
+  return {
+    lit: mix(V.panel, V.mint, 0.08),
+    shade: mix(V.plate, V.mint, 0.04),
+    top: mix(V.forest, V.mint, 0.18),
+    roof: mix(V.mint, V.forest, 0.25),
+    roofShade: mix(V.mint, V.plate, 0.55),
+    window: V.ivory,
+    accent: V.mint,
+  };
+}
 
 const FLOOR_H = 5;
 const GROUND_H = 9;
@@ -116,7 +167,7 @@ function topDiamond(g: Graphics, a: number, y: number, color: number) {
 }
 
 function shadow(g: Graphics, a: number) {
-  g.ellipse(3, 2, a + 4, a / 2 + 3).fill({ color: 0x000000, alpha: 0.35 });
+  g.ellipse(3, 2, a + 4, a / 2 + 3).fill({ color: V.shadow, alpha: V.shadowAlpha });
 }
 
 /** Ground floor plus one floor per level above 1 (no cap). */
@@ -164,7 +215,7 @@ export function drawBuilding(g: Graphics, district: number, style: number, level
 }
 
 export function drawMayor(g: Graphics) {
-  const p = MAYOR_PALETTE;
+  const p = mayorPalette();
   const a = 24;
   shadow(g, a);
   box(g, a + 4, 0, 5, { ...p, lit: V.forest, shade: V.plate }, false);
@@ -189,7 +240,7 @@ export function drawMayor(g: Graphics) {
 }
 
 export function drawDuomo(g: Graphics) {
-  const p: Palette = { ...districtPalette(0), lit: 0x123a2e, shade: V.plate, top: V.panel };
+  const p: Palette = { ...districtPalette(0), lit: V.panel2, shade: V.plate, top: V.panel };
   const a = 34;
   shadow(g, a);
   box(g, a, 0, 16, p, false);
@@ -210,11 +261,11 @@ export function drawDuomo(g: Graphics) {
 }
 
 export function drawColosseum(g: Graphics) {
-  const ink = hex(DISTRICTS[1].colour);
+  const ink = cityInk(1);
   const rx = 40;
   const ry = 21;
   const h = 26;
-  g.ellipse(4, 3, rx + 4, ry + 3).fill({ color: 0x000000, alpha: 0.35 });
+  g.ellipse(4, 3, rx + 4, ry + 3).fill({ color: V.shadow, alpha: V.shadowAlpha });
   g.ellipse(0, 0, rx, ry).fill(V.panel);
   g.rect(-rx, -h, rx * 2, h).fill(V.panel);
   g.moveTo(-rx, -h).lineTo(-rx, 0).stroke(OUTLINE);
@@ -237,8 +288,8 @@ export function drawColosseum(g: Graphics) {
 }
 
 export function drawVesuvius(g: Graphics) {
-  const ink = hex(DISTRICTS[2].colour);
-  g.ellipse(6, 4, 82, 26).fill({ color: 0x000000, alpha: 0.35 });
+  const ink = cityInk(2);
+  g.ellipse(6, 4, 82, 26).fill({ color: V.shadow, alpha: V.shadowAlpha });
   g.poly([-78, 0, -18, -78, 18, -78, 78, 0, 0, 22]).fill(V.panel);
   g.poly([0, 22, 78, 0, 18, -78, 4, -78]).fill(V.plate);
   // contour engraving on the slopes
@@ -254,7 +305,7 @@ export function drawVesuvius(g: Graphics) {
   const p = districtPalette(2);
   const px = 46;
   const py = 10;
-  g.ellipse(px + 2, py + 2, 12, 5).fill({ color: 0x000000, alpha: 0.3 });
+  g.ellipse(px + 2, py + 2, 12, 5).fill({ color: V.shadow, alpha: V.shadowAlpha * 0.85 });
   g.poly([px - 9, py, px, py + 4.5, px, py - 9.5, px - 9, py - 14]).fill(V.panel).stroke(OUTLINE);
   g.poly([px, py + 4.5, px + 9, py, px + 9, py - 14, px, py - 9.5]).fill(V.plate).stroke(OUTLINE);
   g.poly([px - 10, py - 14, px, py - 9, px, py - 22]).fill(p.roof).stroke(OUTLINE);
@@ -268,7 +319,7 @@ export function drawVesuvius(g: Graphics) {
 }
 
 export function drawCampanile(g: Graphics) {
-  const ink = hex(DISTRICTS[3].colour);
+  const ink = cityInk(3);
   const p: Palette = { ...districtPalette(3), lit: V.panel, shade: V.plate, top: V.forest };
   const a = 10;
   shadow(g, a);
@@ -277,7 +328,7 @@ export function drawCampanile(g: Graphics) {
     g.poly([-a, -v, 0, a / 2 - v, 0, a / 2 - v - 1.4, -a, -v - 1.4]).fill({ color: V.mint, alpha: 0.6 });
     g.poly([0, a / 2 - v, a, -v, a, -v - 1.4, 0, a / 2 - v - 1.4]).fill({ color: V.mint, alpha: 0.3 });
   }
-  box(g, a, 64, 12, { ...p, lit: 0x123a2e }, false);
+  box(g, a, 64, 12, { ...p, lit: V.panel2 }, false);
   g.poly([-a + 3, -66 + 1.5, -3, -66 + 3.5, -3, -74 + 3.5, -a + 3, -74 + 1.5]).fill(V.void).stroke({ width: 0.7, color: V.mint });
   topDiamond(g, a, -76, V.forest);
   g.poly([-a, -76, 0, -76 + a / 2, 0, -100]).fill(mix(ink, V.forest, 0.35)).stroke(OUTLINE);
@@ -286,7 +337,7 @@ export function drawCampanile(g: Graphics) {
 }
 
 export function drawTree(g: Graphics, kind: number) {
-  g.ellipse(2, 1, 6, 3).fill({ color: 0x000000, alpha: 0.3 });
+  g.ellipse(2, 1, 6, 3).fill({ color: V.shadow, alpha: V.shadowAlpha * 0.85 });
   if (kind === 0) {
     // cypress, like the frieze: tall flame with engraved strokes
     g.ellipse(0, -10, 3.4, 10).fill(V.forest).stroke({ width: 0.9, color: V.mint });
@@ -345,7 +396,7 @@ export function drawCottage(g: Graphics, variant: number) {
     lit: V.forest,
     shade: V.plate,
     top: V.forest,
-    roof: [0x1a4f3d, 0x245746, 0x163f32][variant % 3],
+    roof: [mix(V.forest, V.mint, 0.2), mix(V.forest, V.mint, 0.3), mix(V.forest, V.mint, 0.14)][variant % 3],
     roofShade: V.plate,
     window: V.mint,
     accent: V.mint,

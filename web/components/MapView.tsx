@@ -5,6 +5,8 @@ import { CityScene } from "../lib/scene";
 import { DISTRICTS, levelForUsd } from "../lib/config";
 import { DISTRICT_PLACES, PLACES } from "../lib/plots";
 import { getCity, onCityEvent, useCity } from "../lib/store";
+import { applyArtTheme } from "../lib/art";
+import { ink, useTheme } from "../lib/theme";
 
 export default function MapView() {
   const host = useRef<HTMLDivElement>(null);
@@ -13,6 +15,9 @@ export default function MapView() {
   const [ready, setReady] = useState(false);
   const [selected, setSelected] = useState<number | null>(null);
   const city = useCity();
+  const theme = useTheme();
+  // Camera kept across theme switches (the map is redrawn in the other palette).
+  const camera = useRef<{ x: number; y: number; s: number } | null>(null);
 
   const placeBanners = () => {
     const sc = sceneRef.current;
@@ -30,12 +35,15 @@ export default function MapView() {
   };
 
   useEffect(() => {
+    applyArtTheme(theme);
+    setReady(false);
     const scene = new CityScene({ onSelect: setSelected, onCamera: placeBanners });
     sceneRef.current = scene;
     let alive = true;
     scene.init(host.current!).then(() => {
       if (!alive) return;
       scene.sync(getCity().buildings, false);
+      if (camera.current) scene.setCamera(camera.current);
       placeBanners();
       setReady(true);
     });
@@ -51,12 +59,13 @@ export default function MapView() {
     window.addEventListener("resize", onResize);
     return () => {
       alive = false;
+      camera.current = scene.getCamera();
       off();
       window.removeEventListener("resize", onResize);
       scene.destroy();
       sceneRef.current = null;
     };
-  }, []);
+  }, [theme]);
 
   const shownMode = useRef(city.mode);
   useEffect(() => {
@@ -84,7 +93,7 @@ export default function MapView() {
       <div ref={host} className="map-canvas" />
       <div className="map-overlay">
         {DISTRICTS.map((D, i) => (
-          <div key={D.city} ref={(el) => { banners.current[i] = el; }} className="banner" style={{ ["--c" as string]: D.colour, ["--cd" as string]: D.dark }}>
+          <div key={D.city} ref={(el) => { banners.current[i] = el; }} className="banner" style={{ ["--c" as string]: ink(D), ["--cd" as string]: D.dark }}>
             {leader === D.id && <span className="this-week">LEADING</span>}
             <span className="banner-token">{D.city.toUpperCase()}</span>
             <span className="banner-city">{city.districtCount[D.id]?.toLocaleString() ?? 0} palazzi</span>
@@ -97,7 +106,7 @@ export default function MapView() {
       </div>
       {!ready && <div className="map-loading">Building the city…</div>}
       {sel && d && (
-        <div className="building-card" style={{ ["--c" as string]: d.colour }}>
+        <div className="building-card" style={{ ["--c" as string]: ink(d) }}>
           <button className="close" onClick={() => { setSelected(null); sceneRef.current?.select(null); }} aria-label="Close">×</button>
           <div className="bc-title">Palazzo #{sel.id}</div>
           <div className="bc-sub">{d.city} · {d.styles[sel.style]}</div>
