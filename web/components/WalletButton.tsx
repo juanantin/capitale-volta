@@ -1,7 +1,6 @@
 "use client";
 
 import { useAccount, useConnect, useDisconnect } from "wagmi";
-import { setMode } from "../lib/store";
 
 export const short = (a: string) => `${a.slice(0, 6)}…${a.slice(-4)}`;
 
@@ -22,7 +21,6 @@ export default function WalletButton() {
       className="btn wallet"
       disabled={isPending}
       onClick={() => {
-        setMode("testnet");
         if (injected) connect({ connector: injected });
       }}
     >

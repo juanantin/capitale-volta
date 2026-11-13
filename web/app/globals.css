@@ -1469,3 +1469,43 @@ body,
   text-transform: uppercase;
   color: color-mix(in oklab, var(--muted) 85%, transparent);
 }
+
+
+/* ─────────── hidden test lab (triple click on the mode chip) ─────────── */
+
+.lab-dialog {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: color-mix(in oklab, var(--void) 55%, transparent);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  animation: fade 0.2s ease;
+}
+
+.lab-panel {
+  display: flex;
+  flex-direction: column;
+  width: min(480px, 100%);
+  max-height: min(88vh, 900px);
+  background: linear-gradient(180deg, var(--panel-from), var(--panel-to));
+  border: 1px solid var(--border);
+  box-shadow: var(--panel-shadow), 0 30px 80px -30px #0008;
+}
+
+:root[data-theme="light"] .lab-panel {
+  background: linear-gradient(180deg, #fbfdfcfa, #f1f7f4fc);
+}
+
+.lab-panel .sheet-head h2 {
+  font-size: 26px;
+}
+
+@keyframes fade {
+  from {
+    opacity: 0;
+  }
+}

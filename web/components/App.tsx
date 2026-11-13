@@ -1,7 +1,7 @@
 "use client";
 
 import { ink } from "../lib/theme";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useAccount } from "wagmi";
 import MapView from "./MapView";
 import Providers from "./Providers";
@@ -14,7 +14,7 @@ import Logo from "./Logo";
 import WhitePaper from "./WhitePaper";
 import { BuildTab, MyPalazzoTab, RankingsTab, SindacoTab, TownHallTab, TreasuryTab } from "./Panels";
 import { MAX_BUILDINGS, TOKENS } from "../lib/config";
-import { setLive, setMode, settleIfDue, tick, ui, useCity } from "../lib/store";
+import { getCity, setLive, setMode, settleIfDue, tick, ui, useCity } from "../lib/store";
 
 const TABS = [
   { key: "build", label: "Build", icon: "" },
@@ -24,7 +24,6 @@ const TABS = [
   { key: "treasury", label: "Treasury", icon: "" },
   { key: "paper", label: "White Paper", icon: "" },
   { key: "sindaco", label: "Il Sindaco", icon: "" },
-  { key: "lab", label: "Test lab", icon: "" },
 ] as const;
 type TabKey = (typeof TABS)[number]["key"];
 
@@ -57,6 +56,28 @@ function Game() {
   const city = useCity();
   useTheme(); // re-render every panel when the theme changes (city and token inks)
   const [tab, setTab] = useState<TabKey | null>(null);
+  const [lab, setLab] = useState(false);
+  // Triple click / tap detection on the mode chip (counted by hand so touch screens work too).
+  // Times come from the event itself (when the finger touched), so a busy frame cannot
+  // stretch the gaps; the single-click action waits until the tapping stops.
+  const taps = useRef<number[]>([]);
+  const pending = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const onModeChipClick = (e: React.MouseEvent) => {
+    const now = e.timeStamp;
+    taps.current = [...taps.current.filter((t) => now - t < 1500), now];
+    if (pending.current) clearTimeout(pending.current);
+    pending.current = null;
+    if (taps.current.length >= 3) {
+      taps.current = [];
+      setLab(true);
+      return;
+    }
+    // Single click: pause / resume the sample activity (preview only).
+    pending.current = setTimeout(() => {
+      pending.current = null;
+      if (getCity().mode === "preview") setLive(!getCity().live);
+    }, 450);
+  };
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
@@ -101,18 +122,20 @@ function Game() {
         <div className="stat"><span>City tax</span><b>{compact(city.totalTax)} <small>VOLTA</small></b></div>
         <div className="stat"><span>Purchases</span><b>{city.totalPurchases}</b></div>
         <div className="stat" style={{ ["--c" as string]: ink(D) }}><span>This week</span><b className="week-token">{D.token}</b></div>
-        <div className="stat mode">
-          <span>Mode</span>
-          <div className="seg">
-            <button className={city.mode === "preview" ? "on" : ""} onClick={() => setMode("preview")}>Preview</button>
-            <button className={city.mode === "testnet" ? "on" : ""} onClick={() => { setMode("testnet"); if (!savedCity()) setTab("lab"); }}>Testnet</button>
-          </div>
-        </div>
-        {city.mode === "preview" && (
-          <button className={`stat live ${city.live ? "on" : ""}`} onClick={() => setLive(!city.live)} title="Simulated activity in the preview">
-            <span>Sample data</span><b>{city.live ? "● Live" : "Paused"}</b>
-          </button>
-        )}
+        {/* Test mode is hidden: a triple click / tap on this chip opens the test lab. */}
+        <button className={`stat live ${city.mode === "testnet" || city.live ? "on" : ""}`} onClick={onModeChipClick}>
+          {city.mode === "preview" ? (
+            <>
+              <span>Sample data</span>
+              <b>{city.live ? "● Live" : "Paused"}</b>
+            </>
+          ) : (
+            <>
+              <span>Test city</span>
+              <b>● On chain</b>
+            </>
+          )}
+        </button>
       </section>
 
       <section className={`sheet ${tab ? "open" : ""}`} aria-hidden={!tab}>
@@ -130,11 +153,27 @@ function Game() {
               {tab === "treasury" && <TreasuryTab />}
               {tab === "paper" && <WhitePaper />}
               {tab === "sindaco" && <SindacoTab />}
-              {tab === "lab" && <TestLab />}
             </div>
           </>
         )}
       </section>
+
+      {lab && (
+        <div className="lab-dialog" role="dialog" aria-modal="true" aria-label="Test lab" onClick={(e) => e.target === e.currentTarget && setLab(false)}>
+          <div className="lab-panel">
+            <div className="sheet-head">
+              <h2>Test lab</h2>
+              {city.mode === "testnet" && (
+                <button className="btn small" onClick={() => setMode("preview")}>Back to preview</button>
+              )}
+              <button className="close" onClick={() => setLab(false)} aria-label="Close">×</button>
+            </div>
+            <div className="sheet-body">
+              <TestLab />
+            </div>
+          </div>
+        </div>
+      )}
 
       <nav className="tabs">
         {TABS.map((t) => (
