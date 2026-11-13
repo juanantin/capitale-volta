@@ -139,8 +139,8 @@ weekly vote.
 - Swap fee for $CAPITALE on Volta (1–5%) and anti-snipe settings: Juan's call at launch.
 - Buy sizes per token vs pool liquidity (SENT pool is thin).
 - Hosting: capitale.city (currently on the old Vercel project) moves to this project.
-- Juan asked whether NFTs make sense on Elysium: they work (Volta's creator NFT is one);
-  there may be no marketplace yet. Kept for now; alternative is non-transferable buildings.
+- NFTs on Elysium: decided by Juan, kept. Verified on chain (Nov 2026): Volta's creator NFT
+  (0xac46…02c7, "Volta Creator") reports ERC-721 support. There may be no marketplace yet.
 
 ## Rules
 - Never ask for, print or store private keys or seed phrases. Use a gitignored `.env` or a
