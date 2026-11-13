@@ -34,7 +34,7 @@ contract CapitaleVaultRewardsTest is BaseTest {
         assertApproxEqAbs(vault.pending(1, 0), res / 2 + res / 3, 1);
     }
 
-    function test_everyCityEarnsBothTokens() public {
+    function test_everyCityEarnsEveryToken() public {
         goPublic();
         build(alice, 0); // Milano
         build(alice, 1); // Roma
@@ -53,7 +53,7 @@ contract CapitaleVaultRewardsTest is BaseTest {
             assertEq(vault.pending(id, 1), vault.pending(1, 1));
         }
         uint256[] memory p = vault.pendingAll(4);
-        assertEq(p.length, 2);
+        assertEq(p.length, 3);
         vm.prank(alice);
         vault.claim(4);
         assertEq(rewards[0].balanceOf(alice), p[0]);
@@ -106,20 +106,20 @@ contract CapitaleVaultRewardsTest is BaseTest {
         assertEq(vault.pending(1, 0), _residentsOut(0, 0.2 ether));
     }
 
-    function test_claimPaysBothTokens() public {
+    function test_claimPaysAllTokens() public {
         goPublic();
         build(alice, 0);
-        for (uint8 t; t < 2; ++t) {
+        for (uint8 t; t < 3; ++t) {
             vm.prank(alice);
             vault.vote(ids1(1), t);
             vm.warp(vault.weekEnd());
             _buy(0.2 ether); // settles first, so it buys token t
         }
         uint256[] memory p = vault.pendingAll(1);
-        assertEq(p.length, 2);
+        assertEq(p.length, 3);
         vm.prank(alice);
         vault.claim(1);
-        for (uint8 t; t < 2; ++t) {
+        for (uint8 t; t < 3; ++t) {
             assertGt(p[t], 0);
             assertEq(rewards[t].balanceOf(alice), p[t]);
             assertEq(vault.pending(1, t), 0);
@@ -226,7 +226,7 @@ contract CapitaleVaultRewardsTest is BaseTest {
             build(i % 2 == 0 ? alice : bob, uint8((i / 2) % 2));
         }
         payTax(tax);
-        for (uint256 k; k < 100 && vault.residentsEth() + vault.streetEth() >= 0.1 ether; ++k) {
+        for (uint256 k; k < 100 && vault.residentsFunds() + vault.streetFunds() >= 0.1 ether; ++k) {
             vm.warp(block.timestamp + 10 minutes);
             vault.requestBuy();
         }

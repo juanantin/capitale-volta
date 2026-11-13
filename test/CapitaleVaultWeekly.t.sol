@@ -4,7 +4,7 @@ pragma solidity ^0.8.24;
 import {BaseTest} from "./Base.t.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {CapitaleVault, ICapitaleNFTView, IWETH} from "../src/CapitaleVault.sol";
+import {CapitaleVault, IFeeEscrow} from "../src/CapitaleVault.sol";
 import {ICapitaleOracle} from "../src/interfaces/ICapitaleOracle.sol";
 import {ISwapAdapter} from "../src/interfaces/ISwapAdapter.sol";
 
@@ -37,7 +37,7 @@ contract CapitaleVaultWeeklyTest is BaseTest {
         vault.vote(ids1(1), 0);
         vm.stopPrank();
         assertEq(vault.votesOf(0)[1], 2);
-        assertEq(vault.votesOf(0).length, 2);
+        assertEq(vault.votesOf(0).length, 3);
         assertTrue(vault.hasVoted(1));
         // Next week the building can vote again.
         vm.warp(FIRST_DEADLINE);
@@ -63,7 +63,7 @@ contract CapitaleVaultWeeklyTest is BaseTest {
         vault.vote(ids1(1), 1);
         vm.prank(alice);
         vm.expectRevert(CapitaleVault.BadToken.selector);
-        vault.vote(ids1(1), 2); // only STOCKIFY (0) and STONKEX (1)
+        vault.vote(ids1(1), 3); // only SENT (0), VOID (1) and VOLTA (2)
     }
 
     function test_voteAllSkipsVotedAndMayor() public {
@@ -258,10 +258,10 @@ contract CapitaleVaultWeeklyTest is BaseTest {
         vault.settle();
         vm.warp(FIRST_DEADLINE);
         vault.settle();
-        assertEq(vault.residentsEth() + vault.streetEth(), 0.0425 ether);
+        assertEq(vault.residentsFunds() + vault.streetFunds(), 0.0425 ether);
         payTax(0.1 ether);
         assertTrue(vault.requestBuy());
-        assertEq(vault.residentsEth() + vault.streetEth(), 0);
+        assertEq(vault.residentsFunds() + vault.streetFunds(), 0);
     }
 
     // ─────────── permissions ───────────
@@ -280,34 +280,25 @@ contract CapitaleVaultWeeklyTest is BaseTest {
         vm.stopPrank();
     }
 
-    function test_vaultDistrictCountBounds() public {
+    function test_vaultCountBounds() public {
         assertEq(vault.districts(), 4);
-        assertEq(vault.tokenCount(), 2);
+        assertEq(vault.tokenCount(), 3);
         IERC20[] memory none = new IERC20[](0);
         ISwapAdapter[] memory noRoutes = new ISwapAdapter[](0);
+        IFeeEscrow noEscrow = IFeeEscrow(address(0));
         vm.expectRevert(CapitaleVault.BadConfig.selector);
-        new CapitaleVault(admin, ICapitaleNFTView(address(nft)), 0, none, noRoutes, 4, ICapitaleOracle(address(oracle)), opsSafe, IWETH(address(0)), 0, defaultParams());
-        // One token but no swap route for it.
-        IERC20[] memory one = new IERC20[](1);
-        one[0] = IERC20(address(rewards[0]));
+        deployVault(none, noRoutes, 4, noEscrow); // no reward token
+        IERC20[] memory toks = allTokens();
+        ISwapAdapter[] memory routes = allRoutes();
         vm.expectRevert(CapitaleVault.BadConfig.selector);
-        new CapitaleVault(admin, ICapitaleNFTView(address(nft)), 0, one, noRoutes, 4, ICapitaleOracle(address(oracle)), opsSafe, IWETH(address(0)), 0, defaultParams());
+        deployVault(toks, noRoutes, 4, noEscrow); // tokens without swap routes
+        vm.expectRevert(CapitaleVault.BadConfig.selector);
+        deployVault(toks, routes, 0, noEscrow); // no city
+        vm.expectRevert(CapitaleVault.BadConfig.selector);
+        deployVault(toks, routes, 5, noEscrow); // too many cities
     }
 
-    function test_vaultCityCountBounds() public {
-        IERC20[] memory two = new IERC20[](2);
-        two[0] = IERC20(address(rewards[0]));
-        two[1] = IERC20(address(rewards[1]));
-        ISwapAdapter[] memory routes = new ISwapAdapter[](2);
-        routes[0] = adapter;
-        routes[1] = adapter;
-        vm.expectRevert(CapitaleVault.BadConfig.selector);
-        new CapitaleVault(admin, ICapitaleNFTView(address(nft)), 0, two, routes, 0, ICapitaleOracle(address(oracle)), opsSafe, IWETH(address(0)), 0, defaultParams());
-        vm.expectRevert(CapitaleVault.BadConfig.selector);
-        new CapitaleVault(admin, ICapitaleNFTView(address(nft)), 0, two, routes, 5, ICapitaleOracle(address(oracle)), opsSafe, IWETH(address(0)), 0, defaultParams());
-    }
-
-    // ─────────── four cities, two tokens ───────────
+    // ─────────── four cities, three tokens ───────────
 
     function test_streetRaceBetweenFourCities() public {
         build(alice, 2); // Napoli
@@ -323,16 +314,16 @@ contract CapitaleVaultWeeklyTest is BaseTest {
         assertEq(vault.pending(1, 0), res); // Napoli lost the race
         assertEq(vault.pending(4, 0), res); // Milano too
         assertEq(vault.newBuildsOf(0).length, 4);
-        assertEq(vault.votesOf(0).length, 2);
+        assertEq(vault.votesOf(0).length, 3);
     }
 
-    function test_votesOnlyForTheTwoTokens() public {
+    function test_votesOnlyForTheThreeTokens() public {
         build(alice, 3); // a Venezia building votes like any other
         vm.startPrank(alice);
         vm.expectRevert(CapitaleVault.BadToken.selector);
-        vault.vote(ids1(1), 2);
+        vault.vote(ids1(1), 3);
         vm.expectRevert(CapitaleVault.BadToken.selector);
-        vault.voteAll(3);
+        vault.voteAll(4);
         vault.vote(ids1(1), 1);
         vm.stopPrank();
         vm.warp(FIRST_DEADLINE);
@@ -367,6 +358,6 @@ contract CapitaleVaultWeeklyTest is BaseTest {
         adapter.setQuality(0);
         vm.prank(admin);
         vault.requestBuy();
-        assertEq(address(vault).balance, 1 ether);
+        assertEq(vaultIncome(), 1 ether);
     }
 }

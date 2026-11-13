@@ -22,10 +22,26 @@ interface IWETH {
     function withdraw(uint256) external;
 }
 
+/// @notice Volta's FeeEscrow on Elysium: holds each recipient's fee share until withdrawn.
+interface IFeeEscrow {
+    function withdrawFees(address token, address recipient, bool unwrap) external;
+    function balances(address recipient, address token) external view returns (uint256);
+}
+
 /// @title CapitaleVault
-/// @notice Receives all of $CAPITALE's creator-fee income (ETH) and turns it into rewards:
+/// @notice Receives all of $CAPITALE's creator-fee income and turns it into rewards:
 ///         70% buys this week's token for residents, 15% buys it for the weekly street pool,
-///         15% stays in ETH for operations (paid only to the ops multisig).
+///         15% stays as income for operations (paid only to the ops multisig).
+///
+///         Income is one asset fixed at deploy: an ERC-20 (Capitale on Volta: $VOLTA, the
+///         asset $CAPITALE is paired with) or the chain's native coin (`income == address(0)`).
+///         On Volta the vault holds $CAPITALE's creator NFT, so the creator share of every
+///         trading fee is credited to it in Volta's FeeEscrow; anyone can call
+///         collectCreatorFees() to pull it in.
+///
+///         If the income asset is also a reward token (VOLTA), "buying" it is a direct
+///         allocation with no swap. The vault keeps reward tokens owed to buildings
+///         (`heldRewards`) apart from fresh income, so they never get re-split as tax.
 ///
 ///         Buying is rule-bound and anyone may trigger it: minimum order, maximum order, one
 ///         order at a time, a minimum interval, and a price check against the oracle reference.
@@ -62,6 +78,14 @@ contract CapitaleVault is ICapitaleVault, Ownable2Step, ReentrancyGuard {
     ICapitaleNFTView public immutable nft;
     uint256 public immutable earlyBirdEnd;
     IWETH public immutable weth;
+    /// Income asset: an ERC-20, or address(0) for the native coin.
+    IERC20 public immutable income;
+    uint8 public immutable incomeDecimals;
+    /// Volta FeeEscrow the creator share is credited to (address(0) if not used).
+    IFeeEscrow public immutable feeEscrow;
+    /// Index of the income asset among the reward tokens, or NO_TOKEN.
+    uint8 public immutable incomeRewardIndex;
+    uint8 public constant NO_TOKEN = type(uint8).max;
     /// Number of districts (cities), fixed at deploy. Capitale: 4 (Milano, Roma, Napoli, Venezia).
     /// Cities only matter for plots and the weekly street competition.
     uint8 public immutable districts;
@@ -76,8 +100,8 @@ contract CapitaleVault is ICapitaleVault, Ownable2Step, ReentrancyGuard {
     address public ops;
 
     struct BuyParams {
-        uint128 minOrder; // wei
-        uint128 maxOrder; // wei
+        uint128 minOrder; // income units
+        uint128 maxOrder; // income units
         uint32 minInterval; // seconds between orders
         uint32 rejectPause; // pause after a rejected order
         uint16 maxDeviationBps; // allowed shortfall vs the reference price
@@ -89,10 +113,12 @@ contract CapitaleVault is ICapitaleVault, Ownable2Step, ReentrancyGuard {
     uint256 public pausedUntil;
     uint256 public immutable deployedAt;
 
-    // ETH buckets (everything else in the balance is new, not yet split, income).
-    uint256 public residentsEth;
-    uint256 public streetEth;
-    uint256 public opsEth;
+    // Income buckets (everything else in the income balance is new, not yet split, income).
+    uint256 public residentsFunds;
+    uint256 public streetFunds;
+    uint256 public opsFunds;
+    /// Reward tokens bought and not yet claimed (pools, accumulators, carry).
+    uint256[4] public heldRewards;
 
     // Week state.
     uint256 public week;
@@ -136,14 +162,15 @@ contract CapitaleVault is ICapitaleVault, Ownable2Step, ReentrancyGuard {
     mapping(uint256 => uint256) public claimedUsd;
 
     // Stats.
-    uint256 public totalTaxEth;
+    uint256 public totalTax;
     uint256 public totalPurchases;
     uint256 public totalBoughtUsd;
     uint256[4] public totalBought;
 
     event TaxReceived(uint256 amount, uint256 residents, uint256 street, uint256 ops);
-    event Bought(uint256 indexed week, uint8 indexed token, uint256 ethIn, uint256 tokensOut, uint256 usd);
-    event BuyRejected(uint256 indexed week, uint8 indexed token, uint256 ethIn, uint256 minOut, bytes reason);
+    event Bought(uint256 indexed week, uint8 indexed token, uint256 amountIn, uint256 tokensOut, uint256 usd);
+    event BuyRejected(uint256 indexed week, uint8 indexed token, uint256 amountIn, uint256 minOut, bytes reason);
+    event CreatorFeesCollected(uint256 amount);
     event BuySkipped(uint8 reason);
     event Distributed(uint8 indexed token, uint256 amount, uint256 buildings);
     event EarlyBirdFinalized(uint256 buildings);
@@ -175,29 +202,37 @@ contract CapitaleVault is ICapitaleVault, Ownable2Step, ReentrancyGuard {
     error NothingToPay();
     error OpsTransferFailed();
 
-    constructor(
-        address owner_,
-        ICapitaleNFTView nft_,
-        uint256 earlyBirdEnd_,
-        IERC20[] memory tokens_,
-        ISwapAdapter[] memory adapters_,
-        uint8 districts_,
-        ICapitaleOracle oracle_,
-        address ops_,
-        IWETH weth_,
-        uint8 initialToken,
-        BuyParams memory params_
-    ) Ownable(owner_) {
-        if (address(nft_) == address(0) || address(oracle_) == address(0) || ops_ == address(0)) revert BadConfig();
+    /// Deploy-time settings (grouped to keep the constructor readable).
+    struct Setup {
+        address owner;
+        ICapitaleNFTView nft;
+        uint256 earlyBirdEnd;
+        IERC20 income;
+        IFeeEscrow feeEscrow;
+        ICapitaleOracle oracle;
+        address ops;
+        IWETH weth;
+        uint8 districts;
+        uint8 initialToken;
+    }
+
+    constructor(Setup memory c, IERC20[] memory tokens_, ISwapAdapter[] memory adapters_, BuyParams memory params_)
+        Ownable(c.owner)
+    {
+        if (address(c.nft) == address(0) || address(c.oracle) == address(0) || c.ops == address(0)) revert BadConfig();
         uint256 n = tokens_.length;
         if (n == 0 || n > MAX_TOKENS || adapters_.length != n) revert BadConfig();
-        if (districts_ == 0 || districts_ > MAX_DISTRICTS) revert BadConfig();
-        if (initialToken >= n) revert BadToken();
+        if (c.districts == 0 || c.districts > MAX_DISTRICTS) revert BadConfig();
+        if (c.initialToken >= n) revert BadToken();
         tokenCount = uint8(n);
-        districts = districts_;
-        nft = nft_;
-        earlyBirdEnd = earlyBirdEnd_;
-        weth = weth_;
+        districts = c.districts;
+        nft = c.nft;
+        earlyBirdEnd = c.earlyBirdEnd;
+        weth = c.weth;
+        income = c.income;
+        incomeDecimals = address(c.income) == address(0) ? 18 : IERC20Metadata(address(c.income)).decimals();
+        feeEscrow = c.feeEscrow;
+        uint8 incomeIdx = NO_TOKEN;
         for (uint256 i; i < n; ++i) {
             if (address(tokens_[i]) == address(0)) revert BadConfig();
             for (uint256 j; j < i; ++j) {
@@ -206,16 +241,24 @@ contract CapitaleVault is ICapitaleVault, Ownable2Step, ReentrancyGuard {
             tokens[i] = tokens_[i];
             tokenDecimals[i] = IERC20Metadata(address(tokens_[i])).decimals();
             adapters[i] = adapters_[i];
+            if (tokens_[i] == c.income) incomeIdx = uint8(i);
         }
-        oracle = oracle_;
-        ops = ops_;
-        currentToken = initialToken;
+        incomeRewardIndex = incomeIdx;
+        oracle = c.oracle;
+        ops = c.ops;
+        currentToken = c.initialToken;
         _setBuyParams(params_);
         deployedAt = block.timestamp;
         weekEnd = RomeTime.nextDeadline(block.timestamp);
     }
 
     receive() external payable {}
+
+    /// @notice Lets the vault hold Volta's creator NFT for $CAPITALE (its fee share then flows
+    ///         here). Nothing can move it out again: the fee stream is locked to the city.
+    function onERC721Received(address, address, uint256, bytes calldata) external pure returns (bytes4) {
+        return this.onERC721Received.selector;
+    }
 
     // ─────────────────────────── Settlement ───────────────────────────
 
@@ -232,19 +275,26 @@ contract CapitaleVault is ICapitaleVault, Ownable2Step, ReentrancyGuard {
         }
     }
 
-    /// @dev Split any ETH that arrived since the last call: 70 / 15 / 15.
+    /// @dev Income held by the vault that is not reward tokens owed to buildings.
+    function _incomeBalance() internal view returns (uint256 bal) {
+        if (address(income) == address(0)) return address(this).balance;
+        bal = income.balanceOf(address(this));
+        if (incomeRewardIndex != NO_TOKEN) bal -= heldRewards[incomeRewardIndex];
+    }
+
+    /// @dev Split any income that arrived since the last call: 70 / 15 / 15.
     function _ingest() internal {
-        uint256 known = residentsEth + streetEth + opsEth;
-        uint256 bal = address(this).balance;
+        uint256 known = residentsFunds + streetFunds + opsFunds;
+        uint256 bal = _incomeBalance();
         if (bal <= known) return;
         uint256 fresh = bal - known;
         uint256 r = (fresh * RESIDENTS_BPS) / BPS;
         uint256 s = (fresh * STREET_BPS) / BPS;
         uint256 o = fresh - r - s;
-        residentsEth += r;
-        streetEth += s;
-        opsEth += o;
-        totalTaxEth += fresh;
+        residentsFunds += r;
+        streetFunds += s;
+        opsFunds += o;
+        totalTax += fresh;
         emit TaxReceived(fresh, r, s, o);
     }
 
@@ -382,7 +432,7 @@ contract CapitaleVault is ICapitaleVault, Ownable2Step, ReentrancyGuard {
 
     // ─────────────────────────── Buying ───────────────────────────
 
-    /// @notice Buy this week's token with the accumulated ETH, if the rules allow it.
+    /// @notice Buy this week's token with the accumulated income, if the rules allow it.
     ///         Anyone may call this (it also restarts an idle keeper).
     /// @return bought true if an order was executed
     function requestBuy() external nonReentrant returns (bool bought) {
@@ -397,17 +447,20 @@ contract CapitaleVault is ICapitaleVault, Ownable2Step, ReentrancyGuard {
             emit BuySkipped(SKIP_TOO_SOON);
             return false;
         }
-        uint256 pendingEth = residentsEth + streetEth;
-        if (pendingEth < p.minOrder || pendingEth == 0) {
+        uint256 pendingFunds = residentsFunds + streetFunds;
+        if (pendingFunds < p.minOrder || pendingFunds == 0) {
             emit BuySkipped(SKIP_BELOW_MIN);
             return false;
         }
-        uint256 amount = pendingEth < p.maxOrder ? pendingEth : p.maxOrder;
-        uint256 forResidents = (amount * residentsEth) / pendingEth;
+        uint256 amount = pendingFunds < p.maxOrder ? pendingFunds : p.maxOrder;
+        uint256 forResidents = (amount * residentsFunds) / pendingFunds;
         uint8 t = currentToken;
-        uint256 ethUsd_ = oracle.ethUsd();
-        uint256 minOut = (expectedOut(t, amount, ethUsd_) * (BPS - p.maxDeviationBps)) / BPS;
-        uint256 usd = (amount * ethUsd_) / 1e18;
+        uint256 incomeUsd_ = oracle.incomeUsd();
+        // Buying the income asset itself (VOLTA) is a 1:1 allocation: nothing to price-check.
+        uint256 minOut = t == incomeRewardIndex
+            ? amount
+            : (expectedOut(t, amount, incomeUsd_) * (BPS - p.maxDeviationBps)) / BPS;
+        uint256 usd = (amount * incomeUsd_) / (10 ** incomeDecimals);
 
         try this.executeBuy(t, amount, forResidents, minOut, usd) returns (uint256 out) {
             lastBuyAt = block.timestamp;
@@ -420,22 +473,21 @@ contract CapitaleVault is ICapitaleVault, Ownable2Step, ReentrancyGuard {
     }
 
     /// @dev Only callable by the vault itself (from requestBuy), so a failed swap or a price
-    ///      check failure reverts this frame alone and leaves the ETH untouched.
+    ///      check failure reverts this frame alone and leaves the income untouched.
     function executeBuy(uint8 t, uint256 amount, uint256 forResidents, uint256 minOut, uint256 usd)
         external
         returns (uint256 out)
     {
         if (msg.sender != address(this)) revert NotSelf();
-        ISwapAdapter a = adapters[t];
-        if (address(a) == address(0)) revert NoAdapter();
-        residentsEth -= forResidents;
-        streetEth -= amount - forResidents;
+        residentsFunds -= forResidents;
+        streetFunds -= amount - forResidents;
 
-        IERC20 token = tokens[t];
-        uint256 before = token.balanceOf(address(this));
-        a.swapEthForToken{value: amount}(address(token), minOut, address(this));
-        out = token.balanceOf(address(this)) - before;
-        if (out < minOut || out == 0) revert PriceDeviation(out, minOut);
+        if (t == incomeRewardIndex) {
+            out = amount; // the income asset is the reward: set it aside, no swap
+        } else {
+            out = _swap(t, amount, minOut);
+        }
+        heldRewards[t] += out;
 
         uint256 outRes = (out * forResidents) / amount;
         uint256 usdRes = (usd * forResidents) / amount;
@@ -453,10 +505,29 @@ contract CapitaleVault is ICapitaleVault, Ownable2Step, ReentrancyGuard {
         totalBoughtUsd += usd;
     }
 
-    /// @notice Tokens a buy of `ethIn` should return at the oracle reference price.
-    function expectedOut(uint8 t, uint256 ethIn, uint256 ethUsd_) public view returns (uint256) {
+    /// @dev Swap `amount` of income into reward token `t` through its whitelisted adapter.
+    ///      The adapter can take at most `amount` (exact ETH value, or an exact allowance that
+    ///      is reset afterwards) and must deliver at least `minOut`.
+    function _swap(uint8 t, uint256 amount, uint256 minOut) internal returns (uint256 out) {
+        ISwapAdapter a = adapters[t];
+        if (address(a) == address(0)) revert NoAdapter();
+        IERC20 token = tokens[t];
+        uint256 before = token.balanceOf(address(this));
+        if (address(income) == address(0)) {
+            a.swap{value: amount}(address(0), address(token), amount, minOut, address(this));
+        } else {
+            income.forceApprove(address(a), amount);
+            a.swap(address(income), address(token), amount, minOut, address(this));
+            income.forceApprove(address(a), 0);
+        }
+        out = token.balanceOf(address(this)) - before;
+        if (out < minOut || out == 0) revert PriceDeviation(out, minOut);
+    }
+
+    /// @notice Tokens a buy of `amountIn` income should return at the oracle reference price.
+    function expectedOut(uint8 t, uint256 amountIn, uint256 incomeUsd_) public view returns (uint256) {
         uint256 tokenUsd_ = oracle.tokenUsd(address(tokens[t]));
-        return (ethIn * ethUsd_ * (10 ** tokenDecimals[t])) / (tokenUsd_ * 1e18);
+        return (amountIn * incomeUsd_ * (10 ** tokenDecimals[t])) / (tokenUsd_ * (10 ** incomeDecimals));
     }
 
     /// @notice False once nothing was bought or requested for 24h: the keeper stops polling
@@ -471,12 +542,27 @@ contract CapitaleVault is ICapitaleVault, Ownable2Step, ReentrancyGuard {
     /// @notice Pay the accumulated 15% ops share to the ops address. Anyone may call.
     function payOps() external nonReentrant {
         _ingest();
-        uint256 amt = opsEth;
+        uint256 amt = opsFunds;
         if (amt == 0) revert NothingToPay();
-        opsEth = 0;
-        (bool ok,) = ops.call{value: amt}("");
-        if (!ok) revert OpsTransferFailed();
+        opsFunds = 0;
+        if (address(income) == address(0)) {
+            (bool ok,) = ops.call{value: amt}("");
+            if (!ok) revert OpsTransferFailed();
+        } else {
+            income.safeTransfer(ops, amt);
+        }
         emit OpsPaid(ops, amt);
+    }
+
+    /// @notice Pull the creator share credited to this vault in Volta's FeeEscrow and split
+    ///         it as tax. Anyone may call (the keeper does, before each buy check).
+    function collectCreatorFees() external nonReentrant returns (uint256 amount) {
+        if (address(feeEscrow) == address(0)) revert BadConfig();
+        uint256 before = _incomeBalance();
+        feeEscrow.withdrawFees(address(income), address(this), false);
+        amount = _incomeBalance() - before;
+        emit CreatorFeesCollected(amount);
+        _settle();
     }
 
     /// @notice Unwrap any WETH fee income into ETH so it can be split. Anyone may call.
@@ -536,7 +622,7 @@ contract CapitaleVault is ICapitaleVault, Ownable2Step, ReentrancyGuard {
         _claim(ids);
     }
 
-    /// @dev Pays all four tokens at once. A token whose transfer fails is skipped and stays
+    /// @dev Pays every reward token at once. A token whose transfer fails is skipped and stays
     ///      claimable.
     function _claim(uint256[] memory ids) internal {
         _settle();
@@ -551,7 +637,9 @@ contract CapitaleVault is ICapitaleVault, Ownable2Step, ReentrancyGuard {
                 total += owed;
             }
             if (total == 0) continue;
+            heldRewards[t] -= total;
             if (!tokens[t].trySafeTransfer(msg.sender, total)) {
+                heldRewards[t] += total;
                 emit ClaimSkipped(msg.sender, t, total);
                 continue;
             }

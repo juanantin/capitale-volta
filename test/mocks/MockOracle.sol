@@ -6,7 +6,7 @@ import {ICapitaleOracle} from "../../src/interfaces/ICapitaleOracle.sol";
 contract MockOracle is ICapitaleOracle {
     uint256 public spot;
     uint256 public twap;
-    uint256 public eth;
+    uint256 public income;
     mapping(address => uint256) public price;
 
     function setCapitale(uint256 spot_, uint256 twap_) external {
@@ -14,8 +14,8 @@ contract MockOracle is ICapitaleOracle {
         twap = twap_;
     }
 
-    function setEthUsd(uint256 p) external {
-        eth = p;
+    function setIncomeUsd(uint256 p) external {
+        income = p;
     }
 
     function setTokenUsd(address t, uint256 p) external {
@@ -32,9 +32,9 @@ contract MockOracle is ICapitaleOracle {
         return twap;
     }
 
-    function ethUsd() external view returns (uint256) {
-        require(eth != 0, "no eth");
-        return eth;
+    function incomeUsd() external view returns (uint256) {
+        require(income != 0, "no income price");
+        return income;
     }
 
     function tokenUsd(address t) external view returns (uint256) {

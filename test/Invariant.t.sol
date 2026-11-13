@@ -14,9 +14,11 @@ contract Handler is Test {
     MockERC20 internal capitale;
     MockSwapAdapter internal adapter;
     address[3] internal users = [address(0xA11CE), address(0xB0B), address(0xCA401)];
-    uint256[2] public claimed;
+    uint256[3] public claimed;
+    MockERC20 internal volta;
 
-    constructor(CapitaleNFT nft_, CapitaleVault vault_, MockERC20 capitale_, MockSwapAdapter adapter_) {
+    constructor(CapitaleNFT nft_, CapitaleVault vault_, MockERC20 capitale_, MockSwapAdapter adapter_, MockERC20 volta_) {
+        volta = volta_;
         nft = nft_;
         vault = vault_;
         capitale = capitale_;
@@ -36,9 +38,7 @@ contract Handler is Test {
 
     function pay(uint256 amt) external {
         amt = bound(amt, 0, 5 ether);
-        vm.deal(address(this), amt);
-        (bool ok,) = address(vault).call{value: amt}("");
-        require(ok);
+        volta.mint(address(vault), amt); // creator fees in VOLTA
     }
 
     function buy(uint256 quality) external {
@@ -48,7 +48,7 @@ contract Handler is Test {
 
     function voteAll(uint256 u, uint8 t) external {
         vm.prank(users[u % 3]);
-        vault.voteAll(t % 2);
+        vault.voteAll(t % 3); // VOLTA (identity buy) included
     }
 
     function claimAll(uint256 u) external {
@@ -65,13 +65,13 @@ contract Handler is Test {
             mstore(ids, k)
         }
         if (k == 0) return;
-        uint256[2] memory before;
-        for (uint256 t; t < 2; ++t) {
+        uint256[3] memory before;
+        for (uint256 t; t < 3; ++t) {
             before[t] = MockERC20(address(vault.tokens(t))).balanceOf(who);
         }
         vm.prank(who);
         vault.claimMany(ids);
-        for (uint256 t; t < 2; ++t) {
+        for (uint256 t; t < 3; ++t) {
             claimed[t] += MockERC20(address(vault.tokens(t))).balanceOf(who) - before[t];
         }
     }
@@ -100,31 +100,34 @@ contract InvariantTest is BaseTest {
     function setUp() public override {
         super.setUp();
         vm.warp(START);
-        handler = new Handler(nft, vault, capitale, adapter);
+        handler = new Handler(nft, vault, capitale, adapter, volta);
         targetContract(address(handler));
     }
 
-    /// Reward tokens owed to buildings never exceed what the vault holds.
+    /// Reward tokens owed to buildings never exceed what the vault keeps aside for them, and
+    /// what it keeps aside is really there (for VOLTA, on top of the unspent income).
     function invariant_solvent() public view {
         uint256 n = nft.totalResidents();
-        for (uint8 t; t < 2; ++t) {
+        for (uint8 t; t < 3; ++t) {
             uint256 owed = vault.carry(t) + vault.streetPool(t) + vault.earlyBirdPool(t);
             for (uint256 id = 1; id <= n; ++id) {
                 owed += vault.pending(id, t);
             }
-            assertLe(owed, rewards[t].balanceOf(address(vault)));
+            assertLe(owed, vault.heldRewards(t));
+            assertLe(vault.heldRewards(t), rewards[t].balanceOf(address(vault)));
         }
     }
 
-    /// Everything bought is either still in the vault or was claimed by a building owner.
+    /// Everything bought is either still set aside in the vault or was claimed by an owner.
     function invariant_conservation() public view {
-        for (uint8 t; t < 2; ++t) {
-            assertEq(rewards[t].balanceOf(address(vault)) + handler.claimed(t), vault.totalBought(t));
+        for (uint8 t; t < 3; ++t) {
+            assertEq(vault.heldRewards(t) + handler.claimed(t), vault.totalBought(t));
+            if (t != VOLTA_IDX) assertEq(rewards[t].balanceOf(address(vault)), vault.heldRewards(t));
         }
     }
 
-    function invariant_ethBucketsBacked() public view {
-        assertLe(vault.residentsEth() + vault.streetEth() + vault.opsEth(), address(vault).balance);
+    function invariant_incomeBucketsBacked() public view {
+        assertLe(vault.residentsFunds() + vault.streetFunds() + vault.opsFunds(), vaultIncome());
     }
 
     function invariant_countsConsistent() public view {
@@ -141,12 +144,12 @@ contract InvariantTest is BaseTest {
 
     function invariant_votesBounded() public view {
         uint256[] memory v = vault.votesOf(vault.week());
-        assertEq(v.length, 2);
-        assertLe(v[0] + v[1], vault.residents());
+        assertEq(v.length, 3);
+        assertLe(v[0] + v[1] + v[2], vault.residents());
     }
 
     function invariant_mayorNeverEarns() public view {
-        for (uint8 t; t < 2; ++t) {
+        for (uint8 t; t < 3; ++t) {
             assertEq(vault.pending(0, t), 0);
         }
         assertEq(vault.claimedUsd(0), 0);

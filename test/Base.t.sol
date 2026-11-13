@@ -5,7 +5,7 @@ import {Test} from "forge-std/Test.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {CapitaleNFT} from "../src/CapitaleNFT.sol";
 import {CapitalePricing} from "../src/CapitalePricing.sol";
-import {CapitaleVault, ICapitaleNFTView, IWETH} from "../src/CapitaleVault.sol";
+import {CapitaleVault, ICapitaleNFTView, IFeeEscrow, IWETH} from "../src/CapitaleVault.sol";
 import {ICapitaleOracle} from "../src/interfaces/ICapitaleOracle.sol";
 import {ICapitalePricing} from "../src/interfaces/ICapitalePricing.sol";
 import {ICapitaleVault} from "../src/interfaces/ICapitaleVault.sol";
@@ -21,7 +21,10 @@ abstract contract BaseTest is Test {
     uint256 internal constant START = T0 + 1 hours;
 
     uint256 internal constant CAP_PRICE = 1e15; // $0.001
-    uint256 internal constant ETH_USD = 3000e18;
+    // Test income token (stands in for $VOLTA). Its made-up price keeps the arithmetic of the
+    // buy tests simple: 1 income token = $3,000.
+    uint256 internal constant INCOME_USD = 3000e18;
+    uint8 internal constant VOLTA_IDX = 2;
 
     address internal admin = makeAddr("timelock");
     address internal opsSafe = makeAddr("opsSafe");
@@ -31,57 +34,84 @@ abstract contract BaseTest is Test {
     address internal carol = makeAddr("carol");
 
     MockERC20 internal capitale;
-    MockERC20[2] internal rewards;
+    MockERC20[3] internal rewards; // SENT, VOID, VOLTA (the income token)
+    MockERC20 internal volta;
     MockOracle internal oracle;
     MockSwapAdapter internal adapter;
     CapitalePricing internal pricing;
     CapitaleNFT internal nft;
     CapitaleVault internal vault;
 
-    uint256[2] internal tokenUsd = [uint256(0.5e18), 2e18];
+    uint256[3] internal tokenUsd = [uint256(0.5e18), 2e18, INCOME_USD];
 
     function setUp() public virtual {
         vm.warp(T0);
         capitale = new MockERC20("Capitale", "CAPITALE", 18);
-        rewards[0] = new MockERC20("Stockify", "STFY", 18);
-        rewards[1] = new MockERC20("Stonkex", "STONKEX", 6); // different decimals on purpose
+        rewards[0] = new MockERC20("Sent.family", "SENT", 18);
+        rewards[1] = new MockERC20("voidcash", "VOID", 6); // different decimals on purpose
+        volta = new MockERC20("Volta", "VOLTA", 18);
+        rewards[2] = volta;
 
         oracle = new MockOracle();
         oracle.setCapitale(CAP_PRICE, CAP_PRICE);
-        oracle.setEthUsd(ETH_USD);
+        oracle.setIncomeUsd(INCOME_USD);
         adapter = new MockSwapAdapter();
-        for (uint256 i; i < 2; ++i) {
+        for (uint256 i; i < 3; ++i) {
             oracle.setTokenUsd(address(rewards[i]), tokenUsd[i]);
-            adapter.setPrices(ETH_USD, address(rewards[i]), tokenUsd[i]);
+            adapter.setPrices(INCOME_USD, address(rewards[i]), tokenUsd[i]);
         }
 
         pricing = new CapitalePricing(
             admin, ICapitaleOracle(address(oracle)), START, 300, 40e18, [uint256(52e18), 68e18, 88e18, 120e18]
         );
         nft = new CapitaleNFT(IERC20(address(capitale)), ICapitalePricing(address(pricing)), mayor, 4);
-        IERC20[] memory toks = new IERC20[](2);
-        ISwapAdapter[] memory routes = new ISwapAdapter[](2);
-        for (uint256 i; i < 2; ++i) {
-            toks[i] = IERC20(address(rewards[i]));
-            routes[i] = adapter;
-        }
-        vault = new CapitaleVault(
-            admin,
-            ICapitaleNFTView(address(nft)),
-            pricing.earlyBirdEnd(),
-            toks,
-            routes,
-            4, // cities: Milano, Roma, Napoli, Venezia
-            ICapitaleOracle(address(oracle)),
-            opsSafe,
-            IWETH(address(0)),
-            0,
-            defaultParams()
-        );
+        vault = deployVault(allTokens(), allRoutes(), 4, IFeeEscrow(address(0)));
         nft.setVault(ICapitaleVault(address(vault)));
         vm.startPrank(admin);
         pricing.setNft(address(nft));
         vm.stopPrank();
+    }
+
+    function allTokens() internal view returns (IERC20[] memory toks) {
+        toks = new IERC20[](3);
+        for (uint256 i; i < 3; ++i) {
+            toks[i] = IERC20(address(rewards[i]));
+        }
+    }
+
+    function allRoutes() internal view returns (ISwapAdapter[] memory routes) {
+        routes = new ISwapAdapter[](3);
+        for (uint256 i; i < 3; ++i) {
+            routes[i] = adapter;
+        }
+    }
+
+    function deployVault(IERC20[] memory toks, ISwapAdapter[] memory routes, uint8 cities, IFeeEscrow escrow)
+        internal
+        returns (CapitaleVault)
+    {
+        return new CapitaleVault(
+            CapitaleVault.Setup({
+                owner: admin,
+                nft: ICapitaleNFTView(address(nft)),
+                earlyBirdEnd: START + 6 hours,
+                income: IERC20(address(volta)),
+                feeEscrow: escrow,
+                oracle: ICapitaleOracle(address(oracle)),
+                ops: opsSafe,
+                weth: IWETH(address(0)),
+                districts: cities,
+                initialToken: 0
+            }),
+            toks,
+            routes,
+            defaultParams()
+        );
+    }
+
+    /// Income held by the vault that is not owed to buildings.
+    function vaultIncome() internal view returns (uint256) {
+        return volta.balanceOf(address(vault)) - vault.heldRewards(VOLTA_IDX);
     }
 
     function defaultParams() internal pure returns (CapitaleVault.BuyParams memory) {
@@ -119,9 +149,7 @@ abstract contract BaseTest is Test {
     }
 
     function payTax(uint256 amount) internal {
-        vm.deal(address(this), amount);
-        (bool ok,) = address(vault).call{value: amount}("");
-        require(ok);
+        volta.mint(address(vault), amount); // creator fees arriving in $VOLTA
     }
 
     function goPublic() internal {
@@ -141,6 +169,6 @@ abstract contract BaseTest is Test {
 
     /// Tokens bought by an order of `eth` at the oracle price.
     function fill(uint8 t, uint256 eth) internal view returns (uint256) {
-        return (eth * ETH_USD * (10 ** rewards[t].decimals())) / (tokenUsd[t] * 1e18);
+        return (eth * INCOME_USD * (10 ** rewards[t].decimals())) / (tokenUsd[t] * 1e18);
     }
 }

@@ -1,20 +1,22 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {ISwapAdapter} from "../../src/interfaces/ISwapAdapter.sol";
 import {MockERC20} from "./MockERC20.sol";
 
-/// @notice Fills ETH -> token at `oracle price * qualityBps / 10000` by minting the token.
-///         qualityBps < 10000 simulates a worse execution price (slippage / manipulation).
+/// @notice Takes the income token and fills tokenOut at `oracle price * qualityBps / 10000` by
+///         minting it. qualityBps < 10000 simulates a worse execution price.
 contract MockSwapAdapter is ISwapAdapter {
-    uint256 public ethUsd; // 1e18
+    uint256 public incomeUsd; // 1e18 per whole income token
     mapping(address => uint256) public tokenUsd; // 1e18 per whole token
     uint256 public qualityBps = 10_000;
     bool public honourMinOut = true;
     bool public broken;
+    bool public takeMore; // tries to pull more income than approved
 
-    function setPrices(uint256 ethUsd_, address token, uint256 tokenUsd_) external {
-        ethUsd = ethUsd_;
+    function setPrices(uint256 incomeUsd_, address token, uint256 tokenUsd_) external {
+        incomeUsd = incomeUsd_;
         tokenUsd[token] = tokenUsd_;
     }
 
@@ -30,16 +32,27 @@ contract MockSwapAdapter is ISwapAdapter {
         broken = b;
     }
 
-    function swapEthForToken(address token, uint256 minOut, address recipient)
+    function setTakeMore(bool b) external {
+        takeMore = b;
+    }
+
+    function swap(address tokenIn, address tokenOut, uint256 amountIn, uint256 minOut, address recipient)
         external
         payable
         returns (uint256 out)
     {
         require(!broken, "broken");
-        uint8 d = MockERC20(token).decimals();
-        out = (msg.value * ethUsd * (10 ** d)) / (tokenUsd[token] * 1e18);
+        uint8 dIn = 18;
+        if (tokenIn == address(0)) {
+            require(msg.value == amountIn, "value");
+        } else {
+            IERC20(tokenIn).transferFrom(msg.sender, address(this), takeMore ? amountIn + 1 : amountIn);
+            dIn = MockERC20(tokenIn).decimals();
+        }
+        uint8 d = MockERC20(tokenOut).decimals();
+        out = (amountIn * incomeUsd * (10 ** d)) / (tokenUsd[tokenOut] * (10 ** dIn));
         out = (out * qualityBps) / 10_000;
         if (honourMinOut) require(out >= minOut, "slippage");
-        MockERC20(token).mint(recipient, out);
+        MockERC20(tokenOut).mint(recipient, out);
     }
 }

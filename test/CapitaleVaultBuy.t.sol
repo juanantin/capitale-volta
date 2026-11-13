@@ -16,24 +16,24 @@ contract CapitaleVaultBuyTest is BaseTest {
     function test_taxSplit70_15_15() public {
         payTax(1 ether);
         vault.settle();
-        assertEq(vault.residentsEth(), 0.7 ether);
-        assertEq(vault.streetEth(), 0.15 ether);
-        assertEq(vault.opsEth(), 0.15 ether);
-        assertEq(vault.totalTaxEth(), 1 ether);
+        assertEq(vault.residentsFunds(), 0.7 ether);
+        assertEq(vault.streetFunds(), 0.15 ether);
+        assertEq(vault.opsFunds(), 0.15 ether);
+        assertEq(vault.totalTax(), 1 ether);
     }
 
     function test_taxSplitNoDust(uint96 amount) public {
         payTax(amount);
         vault.settle();
-        assertEq(vault.residentsEth() + vault.streetEth() + vault.opsEth(), amount);
+        assertEq(vault.residentsFunds() + vault.streetFunds() + vault.opsFunds(), amount);
     }
 
     function test_payOpsAnyone() public {
         payTax(1 ether);
         vm.prank(bob);
         vault.payOps();
-        assertEq(opsSafe.balance, 0.15 ether);
-        assertEq(vault.opsEth(), 0);
+        assertEq(volta.balanceOf(opsSafe), 0.15 ether);
+        assertEq(vault.opsFunds(), 0);
         vm.expectRevert(CapitaleVault.NothingToPay.selector);
         vault.payOps();
     }
@@ -51,14 +51,14 @@ contract CapitaleVaultBuyTest is BaseTest {
         payTax(1 ether); // 0.85 ETH to buy
         vm.prank(bob); // anyone can trigger
         assertTrue(vault.requestBuy());
-        assertEq(vault.residentsEth() + vault.streetEth(), 0.25 ether);
+        assertEq(vault.residentsFunds() + vault.streetFunds(), 0.25 ether);
         assertEq(rewards[0].balanceOf(address(vault)), fill(0, 0.6 ether));
         // Interval: next order no sooner than 10 minutes.
         vm.warp(block.timestamp + 10 minutes - 1);
         assertFalse(vault.requestBuy());
         vm.warp(block.timestamp + 1);
         assertTrue(vault.requestBuy());
-        assertEq(vault.residentsEth() + vault.streetEth(), 0);
+        assertEq(vault.residentsFunds() + vault.streetFunds(), 0);
     }
 
     function test_buySplitsResidentsAndStreet() public {
@@ -77,8 +77,8 @@ contract CapitaleVaultBuyTest is BaseTest {
         vm.expectEmit(false, false, false, false, address(vault));
         emit CapitaleVault.BuyRejected(0, 0, 0, 0, "");
         assertFalse(vault.requestBuy());
-        assertEq(vault.residentsEth() + vault.streetEth(), 0.85 ether);
-        assertEq(address(vault).balance, 1 ether);
+        assertEq(vault.residentsFunds() + vault.streetFunds(), 0.85 ether);
+        assertEq(vaultIncome(), 1 ether);
         assertEq(vault.pausedUntil(), block.timestamp + 6 hours);
 
         adapter.setQuality(10_000);
@@ -100,7 +100,7 @@ contract CapitaleVaultBuyTest is BaseTest {
         adapter.setQuality(5_000);
         assertFalse(vault.requestBuy());
         assertEq(rewards[0].balanceOf(address(vault)), 0);
-        assertEq(vault.residentsEth() + vault.streetEth(), 0.85 ether);
+        assertEq(vault.residentsFunds() + vault.streetFunds(), 0.85 ether);
     }
 
     function test_brokenOrMissingAdapterRejected() public {
@@ -111,7 +111,7 @@ contract CapitaleVaultBuyTest is BaseTest {
         vm.prank(admin);
         vault.setAdapter(0, ISwapAdapter(address(0)));
         assertFalse(vault.requestBuy());
-        assertEq(address(vault).balance, 1 ether);
+        assertEq(vaultIncome(), 1 ether);
     }
 
     function test_buysCurrentWeekToken() public {
@@ -156,6 +156,6 @@ contract CapitaleVaultBuyTest is BaseTest {
         // ETH sent directly (e.g. a router refund) is treated as new tax, never lost.
         payTax(0.1 ether);
         vault.settle();
-        assertEq(vault.totalTaxEth(), 1.1 ether);
+        assertEq(vault.totalTax(), 1.1 ether);
     }
 }
