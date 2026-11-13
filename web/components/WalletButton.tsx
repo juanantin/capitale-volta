@@ -1,6 +1,8 @@
 "use client";
 
+import { useState } from "react";
 import { useAccount, useConnect, useDisconnect } from "wagmi";
+import { useCity } from "../lib/store";
 
 export const short = (a: string) => `${a.slice(0, 6)}…${a.slice(-4)}`;
 
@@ -8,6 +10,9 @@ export default function WalletButton() {
   const { address, isConnected } = useAccount();
   const { connect, connectors, isPending } = useConnect();
   const { disconnect } = useDisconnect();
+  const city = useCity();
+  const [notice, setNotice] = useState(false);
+
   if (isConnected && address) {
     return (
       <button className="btn wallet on" onClick={() => disconnect()} title="Disconnect">
@@ -16,15 +21,48 @@ export default function WalletButton() {
     );
   }
   const injected = connectors[0];
+  const doConnect = () => {
+    setNotice(false);
+    if (injected) connect({ connector: injected });
+  };
   return (
-    <button
-      className="btn wallet"
-      disabled={isPending}
-      onClick={() => {
-        if (injected) connect({ connector: injected });
-      }}
-    >
-      {isPending ? "Connecting…" : "Connect wallet"}
-    </button>
+    <>
+      <button
+        className="btn wallet"
+        disabled={isPending}
+        // Before launch the site runs on sample data: explain that instead of connecting.
+        onClick={() => (city.mode === "preview" ? setNotice(true) : doConnect())}
+      >
+        {isPending ? "Connecting…" : "Connect wallet"}
+      </button>
+      {notice && (
+        <div
+          className="lab-dialog"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Preview mode"
+          onClick={(e) => e.target === e.currentTarget && setNotice(false)}
+        >
+          <div className="lab-panel preview-notice">
+            <div className="sheet-head">
+              <h2>Preview mode</h2>
+              <button className="close" onClick={() => setNotice(false)} aria-label="Close">×</button>
+            </div>
+            <div className="sheet-body">
+              <p>
+                Capitale has not launched yet. You are looking at a <b>preview</b>: the palazzi, the purchases and
+                the rewards on the map are sample data.
+              </p>
+              <p>
+                Building, voting and claiming open when <b>$CAPITALE</b> launches on <b>Volta</b>, on the Elysium
+                chain. Until then there is nothing to connect a wallet to.
+              </p>
+              <button className="btn primary wide" onClick={() => setNotice(false)}>Explore the preview</button>
+              <button className="link-btn" onClick={doConnect}>Connect anyway</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 }
