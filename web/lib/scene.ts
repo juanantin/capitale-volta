@@ -20,9 +20,10 @@ import {
   rosette,
   V,
   cityInk,
+  mix,
 } from "./art";
 import { DISTRICTS, levelForUsd } from "./config";
-import { BUILDING_SCALE, DISTRICT_PLACES, LANDMARK_SCALE, PLACES, PLOT_SPACING, Pt, RINGS, TILT, WORLD, onLand, plotPosition } from "./plots";
+import { BUILDING_SCALE, COMPASS, DISTRICT_PLACES, GRATICULE, LANDMARK_SCALE, NEIGHBOURS, ORNAMENTS, PLACES, PLOT_SPACING, Pt, RINGS, TILT, WORLD, onAnyLand, onLand, plotPosition } from "./plots";
 
 /** Textures are baked at this resolution so they stay crisp when zoomed in. */
 const RES = 3;
@@ -258,8 +259,9 @@ export class CityScene {
     const c = new Container();
     // Engraved sea: fine horizontal lines, like the sky in Volta's frieze.
     const sea = new Graphics();
-    for (let y = -400; y < WORLD.height + 400; y += 9) sea.moveTo(-600, y).lineTo(WORLD.width + 600, y);
+    for (let y = -900; y < WORLD.height + 900; y += 9) sea.moveTo(-1200, y).lineTo(WORLD.width + 1200, y);
     sea.stroke({ width: 0.8, color: V.mint, alpha: V.lineAlpha });
+    const decor = this.drawSeaDecor();
     // Coast drawn as layered contour lines (a thin mint line on each band's edge).
     const contours = new Graphics();
     for (const [w, alpha] of [
@@ -284,7 +286,7 @@ export class CityScene {
     for (let x = -WORLD.height; x < WORLD.width; x += 14) hatch.moveTo(x, 0).lineTo(x + WORLD.height, WORLD.height);
     hatch.stroke({ width: 0.9, color: V.mint, alpha: V.lineAlpha * 1.15 });
     hatch.mask = landMask;
-    c.addChild(sea, contours, cliff, land, landMask, hatch);
+    c.addChild(sea, decor, contours, cliff, land, landMask, hatch, this.drawOrnaments());
     // A guilloche rosette in each city's ink around its landmark, and a mint one for the Mayor.
     const rings: [Pt, number][] = [
       ...DISTRICT_PLACES.map((k, i) => [PLACES[k], cityInk(i)] as [Pt, number]),
@@ -301,6 +303,89 @@ export class CityScene {
       g.scale.set(1, TILT);
       c.addChild(g);
     }
+    return c;
+  }
+
+  /** Behind the island: guilloche wave ribbons, the 1° graticule and the neighbours' coasts. */
+  private drawSeaDecor(): Container {
+    const c = new Container();
+    // Banknote-style guilloche ribbons: interlaced sine waves across the open sea.
+    const waves = new Graphics();
+    const x0 = -1200;
+    const x1 = WORLD.width + 1200;
+    for (const [yc, amp, len] of [
+      [WORLD.height * 0.62, 34, 260],
+      [WORLD.height * 0.93, 26, 210],
+      [WORLD.height * 0.18, 22, 300],
+    ] as const) {
+      for (let k = 0; k < 7; k++) {
+        const phase = (k / 7) * Math.PI * 2;
+        for (let x = x0; x <= x1; x += 8) {
+          const y = yc + Math.sin((x / len) * Math.PI * 2 + phase) * amp + Math.sin((x / (len * 0.37)) * Math.PI * 2 - phase) * amp * 0.25;
+          if (x === x0) waves.moveTo(x, y);
+          else waves.lineTo(x, y);
+        }
+      }
+    }
+    waves.stroke({ width: 0.8, color: V.mint, alpha: V.lineAlpha * 2.2 });
+    // 1° latitude / longitude lines, like an engraved chart.
+    const grid = new Graphics();
+    for (const line of GRATICULE) grid.poly(line.flat(), false);
+    grid.stroke({ width: 0.9, color: V.mint, alpha: V.lineAlpha * 2.4 });
+    // Neighbouring coasts: faint land, one echo contour, no buildings.
+    const near = new Graphics();
+    for (const ring of NEIGHBOURS) near.poly(ring.flat()).stroke({ width: 18, color: V.mint, alpha: 0.07, join: "round" });
+    for (const ring of NEIGHBOURS) near.poly(ring.flat()).fill({ color: mix(V.void, V.forest, 0.55) }).stroke({ width: 1, color: V.mint, alpha: 0.45, join: "round" });
+    const nearHatch = new Graphics();
+    for (let x = -WORLD.height - 1200; x < WORLD.width + 1200; x += 11) nearHatch.moveTo(x, -900).lineTo(x + WORLD.height + 1800, WORLD.height + 900);
+    nearHatch.stroke({ width: 0.7, color: V.mint, alpha: V.lineAlpha * 1.6 });
+    const nearMask = new Graphics();
+    for (const ring of NEIGHBOURS) nearMask.poly(ring.flat()).fill(0xffffff);
+    nearHatch.mask = nearMask;
+    c.addChild(waves, grid, near, nearMask, nearHatch);
+    return c;
+  }
+
+  /** In open sea: a guilloche compass rose and a few rosette ornaments. */
+  private drawOrnaments(): Container {
+    const c = new Container();
+    for (const [x, y] of ORNAMENTS) {
+      const g = new Graphics();
+      rosette(g, 0, 0, 64, 20, V.mint, 0.8, 0.35);
+      rosette(g, 0, 0, 44, 14, V.mint, 0.6, 0.25);
+      g.circle(0, 0, 70).stroke({ width: 0.8, color: V.mint, alpha: 0.3 });
+      g.position.set(x, y);
+      g.scale.set(1, TILT);
+      c.addChild(g);
+    }
+    const g = new Graphics();
+    rosette(g, 0, 0, 120, 36, V.mint, 1, 0.45);
+    rosette(g, 0, 0, 88, 24, V.mint, 0.8, 0.35);
+    g.circle(0, 0, 130).stroke({ width: 1.2, color: V.mint, alpha: 0.6 });
+    g.circle(0, 0, 136).stroke({ width: 0.6, color: V.mint, alpha: 0.45 });
+    for (let k = 0; k < 32; k++) {
+      const a = (k / 32) * Math.PI * 2;
+      const r1 = k % 8 === 0 ? 142 : 136;
+      g.moveTo(Math.cos(a) * 130, Math.sin(a) * 130).lineTo(Math.cos(a) * r1, Math.sin(a) * r1);
+    }
+    g.stroke({ width: 0.8, color: V.mint, alpha: 0.6 });
+    // Eight-point star: long N/S/E/W points, short diagonals.
+    const star = (len: number, w: number, rot: number, alpha: number) => {
+      for (let q = 0; q < 4; q++) {
+        const a = rot + (q * Math.PI) / 2;
+        const tip = [Math.cos(a) * len, Math.sin(a) * len];
+        const l = [Math.cos(a + Math.PI / 2) * w, Math.sin(a + Math.PI / 2) * w];
+        const r = [Math.cos(a - Math.PI / 2) * w, Math.sin(a - Math.PI / 2) * w];
+        g.poly([0, 0, l[0], l[1], tip[0], tip[1]]).fill({ color: V.mint, alpha });
+        g.poly([0, 0, r[0], r[1], tip[0], tip[1]]).fill({ color: mix(V.mint, V.void, 0.45), alpha });
+      }
+    };
+    star(84, 9, Math.PI / 4, 0.5);
+    star(150, 14, -Math.PI / 2, 0.85);
+    g.circle(0, 0, 6).fill(V.void).stroke({ width: 1, color: V.mint });
+    g.position.set(COMPASS[0], COMPASS[1]);
+    g.scale.set(1, TILT);
+    c.addChild(g);
     return c;
   }
 
@@ -387,7 +472,7 @@ export class CityScene {
       [0, margin],
       [0, -margin],
     ]) {
-      if (onLand(p[0] + dx, p[1] + dy)) return false;
+      if (onAnyLand(p[0] + dx, p[1] + dy)) return false;
     }
     return true;
   }
@@ -553,6 +638,34 @@ export class CityScene {
       const p = plotPosition(d, counts[d]);
       m.position.set(p[0], p[1]);
     });
+  }
+
+  /** A purchase: rings over every city, sparkles from the landmarks and glints on rooftops,
+   *  all in the bought token's ink — every building in every city shares it. */
+  celebrate(color: number) {
+    if (this.reducedMotion) return;
+    const places = [...DISTRICT_PLACES.map((k) => PLACES[k]), PLACES.mayor];
+    for (const [x, y] of places) {
+      const ring = new Graphics();
+      ring.circle(0, 0, 150).stroke({ width: 3, color });
+      rosette(ring, 0, 0, 150, 24, color, 1.2, 0.8);
+      ring.position.set(x, y);
+      ring.scale.set(0.5, 0.5 * TILT);
+      this.fx.addChild(ring);
+      this.tween(1400, (p) => {
+        const k = 0.5 + p * 0.9;
+        ring.scale.set(k, k * TILT);
+        ring.alpha = 1 - p;
+      }, () => ring.destroy());
+      for (let k = 0; k < 18; k++) {
+        this.spawn(x + (Math.random() - 0.5) * 220, y - Math.random() * 120, (Math.random() - 0.5) * 40, -90 - Math.random() * 90, 0, 1.6, color, 1, 0, this.star, 0.9);
+      }
+    }
+    const sprites = [...this.sprites.values()];
+    for (let k = 0; k < Math.min(90, sprites.length); k++) {
+      const sp = sprites[Math.floor(Math.random() * sprites.length)];
+      this.spawn(sp.x, sp.y - sp.height * 0.8, 0, -70 - Math.random() * 40, 0, 1.3, color, 0.7, 0, this.star, 0.85);
+    }
   }
 
   burstAt(id: number) {

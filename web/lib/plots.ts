@@ -20,6 +20,23 @@ export const PLACES: Record<string, Pt> = Object.fromEntries(
 );
 export const DISTRICT_PLACES = ["milano", "roma", "napoli", "venezia"] as const;
 
+// Decoration around Italy (projected and tilted like the island).
+const tilt = ([x, y]: Pt): Pt => [x, y * TILT];
+type Raw = {
+  neighbours: Pt[][];
+  graticule: Pt[][];
+  seas: [string, Pt][];
+  lands: [string, Pt][];
+  ornaments: { compass: Pt; rosettes: Pt[] };
+};
+const raw = italy as unknown as Raw;
+export const NEIGHBOURS: Pt[][] = raw.neighbours.map((r) => r.map(tilt));
+export const GRATICULE: Pt[][] = raw.graticule.map((l) => l.map(tilt));
+export const SEA_LABELS: [string, Pt][] = raw.seas.map(([n, p]) => [n, tilt(p)]);
+export const LAND_LABELS: [string, Pt][] = raw.lands.map(([n, p]) => [n, tilt(p)]);
+export const COMPASS: Pt = tilt(raw.ornaments.compass);
+export const ORNAMENTS: Pt[] = raw.ornaments.rosettes.map(tilt);
+
 function inRing(x: number, y: number, ring: Pt[]): boolean {
   let inside = false;
   for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
@@ -87,4 +104,9 @@ export function plotPosition(district: number, plot: number): Pt {
   const p = list[plot % list.length];
   const layer = Math.floor(plot / list.length);
   return layer === 0 ? p : [p[0] + layer * 6, p[1] + layer * 4];
+}
+
+/** Land of Italy or a neighbour (boats and wave glints keep clear of both). */
+export function onAnyLand(x: number, y: number): boolean {
+  return onLand(x, y) || NEIGHBOURS.some((r) => inRing(x, y, r));
 }

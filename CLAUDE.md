@@ -80,6 +80,10 @@ Torino, Firenze and Sicilia art exists for possible later cities.
   non-upgradeable vault too (we have no Flap guardian); if upgradeable, timelock it.
 
 ## Visual style (locked): Volta's engraved-banknote look
+Light theme by default (forest ink on mint paper, #edf5f2 / #08704b / #0b2a21), with a
+switch to the dark theme. The sea around Italy is an engraved chart: neighbouring coasts,
+1° graticule, guilloche wave ribbons, rosettes, a compass rose and italic sea names. Every
+buy is shown on the map (rings and sparkles in the token's ink over all four cities).
 Dark theme from volta.family: void #041510, plate #08201a, forest #0b2a21, mint #80e3ba,
 ivory #e7f5ed, muted #94b7a7, border #25463a. Cormorant Garamond (display), Geist (text),
 Geist Mono (uppercase, letter-spaced labels). Square corners, thin borders, guilloche

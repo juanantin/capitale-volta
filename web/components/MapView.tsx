@@ -2,18 +2,23 @@
 
 import { useEffect, useRef, useState } from "react";
 import { CityScene } from "../lib/scene";
-import { DISTRICTS, levelForUsd } from "../lib/config";
-import { DISTRICT_PLACES, PLACES } from "../lib/plots";
+import { DISTRICTS, TOKENS, levelForUsd } from "../lib/config";
+import { DISTRICT_PLACES, LAND_LABELS, PLACES, SEA_LABELS } from "../lib/plots";
 import { getCity, onCityEvent, useCity } from "../lib/store";
 import { applyArtTheme } from "../lib/art";
 import { ink, useTheme } from "../lib/theme";
+
+const fmtTokens = (n: number) =>
+  n.toLocaleString("en-US", { notation: n >= 100_000 ? "compact" : "standard", maximumFractionDigits: n >= 100 ? 0 : 2 });
 
 export default function MapView() {
   const host = useRef<HTMLDivElement>(null);
   const sceneRef = useRef<CityScene | null>(null);
   const banners = useRef<(HTMLDivElement | null)[]>([]);
+  const labels = useRef<(HTMLSpanElement | null)[]>([]);
   const [ready, setReady] = useState(false);
   const [selected, setSelected] = useState<number | null>(null);
+  const [toast, setToast] = useState<{ key: number; token: number; tokens: number; buildings: number } | null>(null);
   const city = useCity();
   const theme = useTheme();
   // Camera kept across theme switches (the map is redrawn in the other palette).
@@ -32,6 +37,14 @@ export default function MapView() {
       const s = Math.max(0.55, Math.min(1.15, sc.scale * 2.4));
       el.style.transform = `translate(${x}px, ${y - lift * sc.scale}px) translate(-50%, -100%) scale(${s})`;
     });
+    // Sea and country names, engraved-chart style.
+    [...SEA_LABELS, ...LAND_LABELS].forEach(([, p], i) => {
+      const el = labels.current[i];
+      if (!el) return;
+      const [x, y] = sc.worldToScreen(p);
+      const s = Math.max(0.6, Math.min(1.3, sc.scale * 2.6));
+      el.style.transform = `translate(${x}px, ${y}px) translate(-50%, -50%) scale(${s})`;
+    });
   };
 
   useEffect(() => {
@@ -49,6 +62,10 @@ export default function MapView() {
     });
     const off = onCityEvent((e) => {
       if (e.type === "invited") scene.burstAt(e.building.id);
+      if (e.type === "bought") {
+        scene.celebrate(parseInt(ink(TOKENS[e.token]).slice(1), 16));
+        setToast({ key: Date.now(), token: e.token, tokens: e.tokens, buildings: e.buildings });
+      }
       if (e.type === "focus") {
         scene.flyTo(e.id);
         scene.select(e.id);
@@ -92,6 +109,12 @@ export default function MapView() {
     <div className="map">
       <div ref={host} className="map-canvas" />
       <div className="map-overlay">
+        {SEA_LABELS.map(([name], i) => (
+          <span key={name} ref={(el) => { labels.current[i] = el; }} className="sea-label">{name}</span>
+        ))}
+        {LAND_LABELS.map(([name], i) => (
+          <span key={name} ref={(el) => { labels.current[SEA_LABELS.length + i] = el; }} className="land-label">{name}</span>
+        ))}
         {DISTRICTS.map((D, i) => (
           <div key={D.city} ref={(el) => { banners.current[i] = el; }} className="banner" style={{ ["--c" as string]: ink(D), ["--cd" as string]: D.dark }}>
             {leader === D.id && <span className="this-week">LEADING</span>}
@@ -105,15 +128,30 @@ export default function MapView() {
         </div>
       </div>
       {!ready && <div className="map-loading">Building the city…</div>}
+      {toast && (
+        <div key={toast.key} className="buy-toast" style={{ ["--c" as string]: ink(TOKENS[toast.token]) }} onAnimationEnd={() => setToast(null)}>
+          <span className="kicker">The city bought</span>
+          <b>
+            {Math.round(toast.tokens).toLocaleString()} {TOKENS[toast.token].token}
+          </b>
+          <span className="kicker">shared by {toast.buildings.toLocaleString()} palazzi in all four cities</span>
+        </div>
+      )}
       {sel && d && (
         <div className="building-card" style={{ ["--c" as string]: ink(d) }}>
           <button className="close" onClick={() => { setSelected(null); sceneRef.current?.select(null); }} aria-label="Close">×</button>
           <div className="bc-title">Palazzo #{sel.id}</div>
           <div className="bc-sub">{d.city} · {d.styles[sel.style]}</div>
+          <div className="bc-earns">Earns {TOKENS.map((t) => t.token).join(" · ")}</div>
           <div className="bc-grid">
             <span>Level</span><b>L{levelForUsd(sel.claimedUsd)}</b>
             <span>Claimed</span><b>${sel.claimedUsd.toFixed(2)}</b>
             <span>Pending</span><b>${sel.pendingUsd.toFixed(2)}</b>
+            {TOKENS.map((t) => (
+              <span key={`l${t.id}`} className="bc-token" style={{ ["--c" as string]: ink(t) }}>
+                <i className="dot" /> {t.token}
+              </span>
+            )).flatMap((label, i) => [label, <b key={`v${i}`}>{fmtTokens(sel.pendingTokens?.[i] ?? 0)}</b>])}
             <span>Invites</span><b>{sel.invites}{sel.invites >= 2 ? " " : ""}</b>
             <span>Plot</span><b>{d.city} #{sel.plot + 1}</b>
             <span>Owner</span><b>{sel.owner === city.me ? "You" : sel.owner.length > 20 ? `${sel.owner.slice(0, 6)}…${sel.owner.slice(-4)}` : sel.owner}</b>

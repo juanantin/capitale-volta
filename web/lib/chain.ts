@@ -6,7 +6,7 @@ import { getWalletClient, switchChain } from "@wagmi/core";
 import { nftAbi, pricingAbi, testAdapterAbi, testFeeEscrowAbi, testOracleAbi, testTokenAbi, vaultAbi } from "./abis";
 import { CHAIN, publicClient, wagmiConfig } from "./wagmi";
 import { TOKENS, type DistrictId, type TokenId } from "./config";
-import { getCity, registerChain, setChainState, type Building, type ChainInfo, type Purchase } from "./store";
+import { announce, getCity, registerChain, setChainState, type Building, type ChainInfo, type Purchase } from "./store";
 
 const MAX = 2n ** 256n - 1n;
 const num = (v: bigint, d = 18) => Number(formatUnits(v, d));
@@ -175,6 +175,7 @@ async function readCity(a: CityAddresses, me: Address | null) {
         publicClient.readContract({ ...n, functionName: "ownerOf", args: [BigInt(id)] }),
         rv<bigint>("claimedUsd", [BigInt(id)]),
         rv<bigint>("pendingUsd", [BigInt(id)]),
+        rv<readonly bigint[]>("pendingAll", [BigInt(id)]),
         rv<bigint>("lastVotedWeek", [BigInt(id)]),
         publicClient.readContract({ ...n, functionName: "buildingOf", args: [BigInt(id)] }),
       ]),
@@ -182,7 +183,7 @@ async function readCity(a: CityAddresses, me: Address | null) {
   );
   const buildings: Building[] = ids.map((id, i) => {
     const st = buildingCache.get(id)!;
-    const [owner, claimed, pending, voted, full] = live[i] as [Address, bigint, bigint, bigint, { invites: number }];
+    const [owner, claimed, pending, pendingAll, voted, full] = live[i] as [Address, bigint, bigint, readonly bigint[], bigint, { invites: number }];
     return {
       id,
       district: st.district,
@@ -194,6 +195,7 @@ async function readCity(a: CityAddresses, me: Address | null) {
       earlyBird: st.earlyBird,
       claimedUsd: num(claimed),
       pendingUsd: num(pending),
+      pendingTokens: pendingAll.map((v) => num(v)),
       votedWeek: Number(voted) - 1,
       builtAt: st.builtAt,
     };
@@ -282,7 +284,13 @@ export async function refresh() {
     const next = await readCity(addresses, account);
     if (gen !== generation) return;
     lastError = null;
+    const before = getCity();
     setChainState(next);
+    // A new on-chain buy: let the map celebrate it like in the preview.
+    if (before.chain && next.totalPurchases > before.totalPurchases && next.purchases[0]) {
+      const p = next.purchases[0];
+      announce({ type: "bought", token: p.token, tokens: p.tokens, usd: p.usd, buildings: next.buildings.length });
+    }
   } catch (e) {
     lastError = (e as Error).message?.split("\n")[0] ?? String(e);
     console.warn("Capitale: could not read the city", e);

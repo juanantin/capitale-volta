@@ -1314,3 +1314,158 @@ body,
     font-size: 24px;
   }
 }
+
+
+/* ─────────── purchases, made visible ─────────── */
+
+.buy-toast {
+  position: absolute;
+  left: 50%;
+  bottom: calc(var(--tabs-h) + env(safe-area-inset-bottom) + 18px);
+  max-width: calc(100vw - 32px);
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 10px 18px 11px;
+  text-align: center;
+  background: linear-gradient(180deg, var(--panel-from), var(--panel-to));
+  border: 1px solid var(--c);
+  box-shadow: var(--panel-shadow), 0 0 30px -6px var(--c);
+  pointer-events: none;
+  z-index: 4;
+  animation: toast 4.2s ease forwards;
+}
+
+.buy-toast b {
+  font-family: var(--display);
+  font-size: 26px;
+  font-weight: 600;
+  line-height: 1.05;
+  color: var(--c);
+}
+
+.buy-toast .kicker {
+  font-size: 9px;
+  color: var(--muted);
+}
+
+@keyframes toast {
+  0% {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-8px);
+  }
+  10%,
+  80% {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-6px);
+  }
+}
+
+.bc-earns {
+  margin: -4px 0 10px;
+  font-family: var(--mono);
+  font-size: 9.5px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--mint);
+}
+
+.bc-token {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted);
+}
+
+.bc-token .dot,
+.token-row .dot {
+  width: 7px;
+  height: 7px;
+  background: var(--c);
+  color: var(--c);
+}
+
+.token-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  margin: 10px 0 2px;
+  font-size: 13px;
+}
+
+.token-row span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.token-row b {
+  font-family: var(--mono);
+  font-weight: 500;
+  color: var(--c);
+}
+
+.token-row.small-row {
+  margin: 4px 0 0;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--muted);
+}
+
+@media (min-width: 900px) {
+  .buy-toast {
+    bottom: calc(var(--tabs-h) + 34px);
+  }
+}
+
+@media (max-width: 420px) {
+  .buy-toast {
+    padding: 7px 12px 8px;
+  }
+
+  .buy-toast b {
+    font-size: 20px;
+  }
+
+  .buy-toast .kicker {
+    font-size: 8px;
+    letter-spacing: 0.1em;
+  }
+}
+
+
+/* ─────────── chart labels around Italy ─────────── */
+
+.sea-label,
+.land-label {
+  position: absolute;
+  left: 0;
+  top: 0;
+  white-space: nowrap;
+  transform-origin: 50% 50%;
+  will-change: transform;
+  pointer-events: none;
+}
+
+.sea-label {
+  font-family: var(--display);
+  font-style: italic;
+  font-size: 22px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  color: color-mix(in oklab, var(--mint) 55%, transparent);
+}
+
+.land-label {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.32em;
+  text-transform: uppercase;
+  color: color-mix(in oklab, var(--muted) 85%, transparent);
+}

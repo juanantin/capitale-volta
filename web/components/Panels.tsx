@@ -9,6 +9,8 @@ import { describeError, testActions } from "../lib/chain";
 import { Rosette } from "./Logo";
 
 const fmt = (n: number, d = 0) => n.toLocaleString("en-US", { maximumFractionDigits: d, minimumFractionDigits: d });
+const fmtT = (n: number) =>
+  n.toLocaleString("en-US", { notation: n >= 100_000 ? "compact" : "standard", maximumFractionDigits: n >= 100 ? 0 : 2 });
 const usd = (n: number) => `$${fmt(n, n < 100 ? 2 : 0)}`;
 
 export function useNow(): number {
@@ -191,6 +193,7 @@ export function MyPalazzoTab() {
   const mine = useMemo(() => city.buildings.filter((b) => b.owner === city.me), [city.buildings, city.me]);
   const [pending, run, error] = useTx();
   const totalPending = mine.reduce((s, b) => s + b.pendingUsd, 0);
+  const totalTokens = TOKENS.map((t) => mine.reduce((s, b) => s + (b.pendingTokens?.[t.id] ?? 0), 0));
   const unvoted = mine.filter((b) => b.votedWeek !== city.week).length;
 
   if (mine.length === 0) {
@@ -227,7 +230,14 @@ export function MyPalazzoTab() {
           </button>
         </div>
       )}
-      <p className="muted small">One claim pays both tokens. Claiming is what makes your building taller.</p>
+      <div className="token-row">
+        {TOKENS.map((t) => (
+          <span key={t.id} style={{ ["--c" as string]: ink(t) }}>
+            <i className="dot" /> <b>{fmtT(totalTokens[t.id])}</b> {t.token}
+          </span>
+        ))}
+      </div>
+      <p className="muted small">One claim pays VOLTA, SENT and VOID together. Claiming is what makes your building taller.</p>
       <TxError error={error} />
       <div className="list">
         {mine.map((b) => {
@@ -247,6 +257,13 @@ export function MyPalazzoTab() {
               </button>
               <div className="bar"><i style={{ width: `${pct}%` }} /></div>
               <div className="muted small">{usd(b.claimedUsd)} claimed · next floor at {usd(hi)}</div>
+              <div className="token-row small-row">
+                {TOKENS.map((t) => (
+                  <span key={t.id} style={{ ["--c" as string]: ink(t) }}>
+                    <i className="dot" /> {fmtT(b.pendingTokens?.[t.id] ?? 0)} {t.token}
+                  </span>
+                ))}
+              </div>
               <div className="pal-foot">
                 <span>Pending <b>{usd(b.pendingUsd)}</b></span>
                 <span className={b.votedWeek === city.week ? "ok" : "warn"}>{b.votedWeek === city.week ? "Voted" : "Not voted"}</span>

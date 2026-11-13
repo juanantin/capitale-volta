@@ -22,6 +22,8 @@ export interface Building {
   earlyBird: boolean;
   claimedUsd: number;
   pendingUsd: number;
+  /** Claimable amount of each reward token (VOLTA, SENT, VOID), in whole tokens. */
+  pendingTokens: number[];
   votedWeek: number; // week number it last voted in, -1 never
   builtAt: number;
 }
@@ -105,7 +107,8 @@ export type CityEvent =
   | { type: "built"; building: Building }
   | { type: "levelUp"; building: Building; from: number }
   | { type: "invited"; building: Building }
-  | { type: "focus"; id: number };
+  | { type: "focus"; id: number }
+  | { type: "bought"; token: TokenId; tokens: number; usd: number; buildings: number };
 
 // ─────────── deterministic sample data ───────────
 
@@ -154,10 +157,15 @@ function makeInitial(): CityState {
       earlyBird: id <= 300,
       claimedUsd: Math.round(claimed * 100) / 100,
       pendingUsd: Math.round(r() * 12 * (0.3 + age) * 100) / 100,
+      pendingTokens: [],
       votedWeek: r() < 0.35 ? 0 : -1,
       builtAt: now - Math.floor(age * 30 * 86400),
     });
   }
+  // Past weeks bought all three tokens: split each sample building's pending value 50/30/20.
+  const sampleUsd = [0.00059, 0.00005, 0.000135];
+  for (const b of buildings) b.pendingTokens = [0.5, 0.3, 0.2].map((w, t) => (b.pendingUsd * w) / sampleUsd[t]);
+
   // A few well-connected inviters (fireworks).
   for (let k = 0; k < 160; k++) {
     const invitee = buildings[Math.floor(r() * total)];
@@ -264,6 +272,11 @@ export function setChainState(next: Partial<CityState>) {
   set(next);
 }
 
+/** Announce a city event from outside the store (e.g. a purchase seen on chain). */
+export function announce(e: CityEvent) {
+  emit(e);
+}
+
 export function onCityEvent(l: (e: CityEvent) => void): () => void {
   eventListeners.add(l);
   return () => eventListeners.delete(l);
@@ -311,6 +324,7 @@ export function build(owner: string, district: DistrictId, style: 0 | 1 | 2, inv
     earlyBird: false,
     claimedUsd: 0,
     pendingUsd: 0,
+    pendingTokens: TOKENS.map(() => 0),
     votedWeek: -1,
     builtAt: Math.floor(Date.now() / 1000),
   };
@@ -345,7 +359,7 @@ export async function claim(ids: number[]) {
     const b = buildings[id - 1];
     if (!b || b.pendingUsd <= 0) continue;
     const from = levelForUsd(b.claimedUsd);
-    const nb = { ...b, claimedUsd: b.claimedUsd + b.pendingUsd, pendingUsd: 0 };
+    const nb = { ...b, claimedUsd: b.claimedUsd + b.pendingUsd, pendingUsd: 0, pendingTokens: TOKENS.map(() => 0) };
     buildings[id - 1] = nb;
     if (levelForUsd(nb.claimedUsd) > from) queueMicrotask(() => emit({ type: "levelUp", building: nb, from }));
   }
@@ -422,9 +436,16 @@ export function tick() {
     // A purchase: rewards accrue to everyone.
     const amount = 60_000 + Math.random() * 240_000;
     const usd = amount * s.incomeUsd;
+    const t = s.currentToken;
+    const bought = usd / s.tokenUsd[t];
     const per = (usd * (70 / 85)) / s.buildings.length;
-    const buildings = s.buildings.map((b) => ({ ...b, pendingUsd: Math.round((b.pendingUsd + per) * 100) / 100 }));
-    const purchases = [{ at: Math.floor(Date.now() / 1000), token: s.currentToken, amount, tokens: usd / s.tokenUsd[s.currentToken], usd }, ...s.purchases].slice(0, 30);
+    const perTokens = (bought * (70 / 85)) / s.buildings.length;
+    const buildings = s.buildings.map((b) => {
+      const pendingTokens = [...b.pendingTokens];
+      pendingTokens[t] += perTokens;
+      return { ...b, pendingUsd: Math.round((b.pendingUsd + per) * 100) / 100, pendingTokens };
+    });
+    const purchases = [{ at: Math.floor(Date.now() / 1000), token: t, amount, tokens: bought, usd }, ...s.purchases].slice(0, 30);
     const holdings = [...s.holdings] as CityState["holdings"];
     holdings[s.currentToken] += usd / s.tokenUsd[s.currentToken];
     set({
@@ -434,7 +455,11 @@ export function tick() {
       totalPurchases: s.totalPurchases + 1,
       totalBoughtUsd: s.totalBoughtUsd + usd,
       totalTax: s.totalTax + amount / 0.85,
+      // Sample data only: rotate the week's token every few buys so all three show up. The
+      // real vault buys one token per week, picked by the vote.
+      currentToken: (s.totalPurchases + 1) % 3 === 0 ? (((t + 1) % TOKENS.length) as TokenId) : t,
     });
+    emit({ type: "bought", token: t, tokens: bought, usd, buildings: buildings.length });
   }
 }
 
