@@ -85,7 +85,19 @@ Torino, Firenze and Sicilia art exists for possible later cities.
   pricing/protection changes behind a 48h timelock; NFT not upgradeable. Prefer a
   non-upgradeable vault too (we have no Flap guardian); if upgradeable, timelock it.
 
-## Visual style (locked): Volta's engraved-banknote look
+## Visual style: Riviera (main, chosen by Juan Nov 2026)
+Main branch uses the **Riviera** theme: a modern Italian-coast crime caper riding the open-world
+crime game trend, with an original look (never a third-party game's name, logo, fonts,
+characters or catchphrases). Golden hour by default (teal sea, warm sand land, cream hideouts
+with plum outlines, sunset haze); the dark theme is Riviera night (navy sea, neon pink). Crews:
+Milano I Sarti, Roma I Gladiatori, Napoli I Lazzari, Venezia Le Maschere. Social feed "Capitale
+Live" from real city events, breaking-news ticker that turns into a "heat" siren while buying is
+paused, buys shown as a tilted "score" card, tabs as phone apps. Fonts: Anton (display),
+Manrope (text), JetBrains Mono (labels). Rounded cards. Money mechanics unchanged.
+
+The previous Volta engraved-banknote look is kept on branch `theme-volta` (described below).
+
+### Previous look (branch theme-volta): Volta's engraved-banknote look
 Light theme by default (forest ink on mint paper, #edf5f2 / #08704b / #0b2a21), with a
 switch to the dark theme. The sea around Italy is an engraved chart: neighbouring coasts,
 1° graticule, guilloche wave ribbons, rosettes, a compass rose and italic sea names. Every
