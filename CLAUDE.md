@@ -88,8 +88,8 @@ Torino, Firenze and Sicilia art exists for possible later cities.
 ## Visual style: Riviera (main, chosen by Juan Nov 2026)
 Main branch uses the **Riviera** theme: a modern Italian-coast crime caper riding the open-world
 crime game trend, with an original look (never a third-party game's name, logo, fonts,
-characters or catchphrases). Golden hour by default (teal sea, warm sand land, cream hideouts
-with plum outlines, sunset haze); the dark theme is Riviera night (navy sea, neon pink). Crews:
+characters or catchphrases). Riviera night by default (navy sea, violet land, neon pink; Juan's call), with a
+switch to golden hour (teal sea, warm sand land, cream hideouts with plum outlines, sunset haze). Crews:
 Milano I Sarti, Roma I Gladiatori, Napoli I Lazzari, Venezia Le Maschere. Social feed "Capitale
 Live" from real city events, breaking-news ticker that turns into a "heat" siren while buying is
 paused, buys shown as a tilted "score" card, tabs as phone apps. Fonts: Anton (display),

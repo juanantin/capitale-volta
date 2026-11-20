@@ -47,8 +47,8 @@ const PALETTES = {
 };
 
 /** Current palette; switched by applyArtTheme (textures must be re-baked afterwards). */
-export const V = { ...PALETTES.light };
-let artTheme: Theme = "light";
+export const V = { ...PALETTES.dark };
+let artTheme: Theme = "dark";
 
 export function applyArtTheme(t: Theme) {
   artTheme = t;

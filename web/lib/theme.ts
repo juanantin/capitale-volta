@@ -1,4 +1,4 @@
-// Light ("clear") / dark theme, like volta.family. Remembered per device; light by default.
+// Light ("clear") / dark theme, like volta.family. Remembered per device; dark (Riviera night) by default.
 
 import { useSyncExternalStore } from "react";
 
@@ -14,10 +14,10 @@ function read(): Theme {
   } catch {
     /* storage blocked */
   }
-  return "light";
+  return "dark";
 }
 
-let current: Theme = typeof window === "undefined" ? "light" : read();
+let current: Theme = typeof window === "undefined" ? "dark" : read();
 
 function apply(t: Theme) {
   if (typeof document === "undefined") return;
@@ -50,7 +50,7 @@ export function useTheme(): Theme {
       return () => listeners.delete(l);
     },
     getTheme,
-    () => "light" as Theme,
+    () => "dark" as Theme,
   );
 }
 

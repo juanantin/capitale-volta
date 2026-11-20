@@ -10,18 +10,18 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,
-  themeColor: "#ffb48a",
+  themeColor: "#0c0a1f",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" data-theme="light" suppressHydrationWarning>
+    <html lang="en" data-theme="dark" suppressHydrationWarning>
       <head>
-        {/* Apply the saved theme (light by default) before anything paints. */}
+        {/* Apply the saved theme (dark by default) before anything paints. */}
         <script
           dangerouslySetInnerHTML={{
             __html:
-              "try{var t=localStorage.getItem('capitale.theme');document.documentElement.dataset.theme=t==='dark'?'dark':'light'}catch(e){document.documentElement.dataset.theme='light'}",
+              "try{var t=localStorage.getItem('capitale.theme');document.documentElement.dataset.theme=t==='light'?'light':'dark'}catch(e){document.documentElement.dataset.theme='dark'}",
           }}
         />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
