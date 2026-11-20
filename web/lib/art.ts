@@ -6,37 +6,43 @@ import { Graphics } from "pixi.js";
 import { DISTRICTS } from "./config";
 import type { Theme } from "./theme";
 
-/** Volta palette by role. Dark: mint lines on forest. Light: forest ink on mint paper. */
+/** Riviera palette by role. Light = golden hour: teal sea, warm sand, cream palazzi with
+ *  plum outlines. Dark = Riviera night: navy sea, violet land, neon-pink linework.
+ *  (Role names come from the Volta theme: `mint` is the linework, `void` the sea.) */
 const PALETTES = {
   dark: {
-    void: 0x041510, // sea / page
-    plate: 0x08201a, // shaded faces
-    forest: 0x0b2a21, // land
-    panel: 0x0f3529, // lit faces
-    panel2: 0x123a2e, // lit stone (Duomo, belfry)
-    emerald: 0x245746,
-    mint: 0x80e3ba, // linework
-    ivory: 0xe7f5ed, // highlights
-    muted: 0x94b7a7,
-    cliff: 0x020c09,
+    void: 0x0f1838, // sea
+    plate: 0x2a1640, // shaded faces
+    forest: 0x261a3c, // land
+    panel: 0x3a2350, // lit faces
+    panel2: 0x45295c,
+    emerald: 0x6b3a7a,
+    mint: 0xff6fae, // linework
+    ivory: 0xfff0f6,
+    muted: 0xc79ac0,
+    cliff: 0x120a22,
     shadow: 0x000000,
     shadowAlpha: 0.35,
-    lineAlpha: 0.06, // sea and land engraving
+    lineAlpha: 0.07,
+    surf: 0x3ff5ff, // shoreline glow
+    ornate: false,
   },
   light: {
-    void: 0xe3ede8,
-    plate: 0xd5e4dc,
-    forest: 0xf4f9f6,
-    panel: 0xfbfdfc,
-    panel2: 0xeef5f1,
-    emerald: 0x8db3a1,
-    mint: 0x08704b,
-    ivory: 0x0b2a21,
-    muted: 0x476658,
-    cliff: 0xbfd3c8,
-    shadow: 0x0b2a21,
-    shadowAlpha: 0.12,
-    lineAlpha: 0.1,
+    void: 0x27b4c3,
+    plate: 0xefc0ae,
+    forest: 0xf8dfbd,
+    panel: 0xfff6ea,
+    panel2: 0xfde9d6,
+    emerald: 0xd29a78,
+    mint: 0x5b2340,
+    ivory: 0x2a0f22,
+    muted: 0x8a5a6e,
+    cliff: 0xd9a27c,
+    shadow: 0x5b2340,
+    shadowAlpha: 0.14,
+    lineAlpha: 0.12,
+    surf: 0xffffff,
+    ornate: false,
   },
 };
 

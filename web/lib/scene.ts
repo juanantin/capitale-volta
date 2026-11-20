@@ -261,7 +261,7 @@ export class CityScene {
     // Engraved sea: fine horizontal lines, like the sky in Volta's frieze.
     const sea = new Graphics();
     for (let y = -900; y < WORLD.height + 900; y += 9) sea.moveTo(-1200, y).lineTo(WORLD.width + 1200, y);
-    sea.stroke({ width: 0.8, color: V.mint, alpha: V.lineAlpha });
+    sea.stroke({ width: 0.8, color: V.ornate ? V.mint : V.surf, alpha: V.ornate ? V.lineAlpha : 0.12 });
     const decor = this.drawSeaDecor();
     // Coast drawn as layered contour lines (a thin mint line on each band's edge).
     const contours = new Graphics();
@@ -270,7 +270,7 @@ export class CityScene {
       [60, 0.2],
       [36, 0.32],
     ] as const) {
-      for (const ring of RINGS) contours.poly(ring.flat()).stroke({ width: w, color: V.mint, alpha, join: "round" });
+      for (const ring of RINGS) contours.poly(ring.flat()).stroke({ width: w, color: V.ornate ? V.mint : V.surf, alpha: V.ornate ? alpha : alpha * 2.2, join: "round" });
       for (const ring of RINGS) contours.poly(ring.flat()).stroke({ width: w - 3, color: V.void, join: "round" });
     }
     const cliff = new Graphics();
@@ -287,6 +287,7 @@ export class CityScene {
     for (let x = -WORLD.height; x < WORLD.width; x += 14) hatch.moveTo(x, 0).lineTo(x + WORLD.height, WORLD.height);
     hatch.stroke({ width: 0.9, color: V.mint, alpha: V.lineAlpha * 1.15 });
     hatch.mask = landMask;
+    if (!V.ornate) hatch.visible = false; // Riviera: flat sunlit land, no engraving
     c.addChild(sea, decor, contours, cliff, land, landMask, hatch, this.drawOrnaments());
     // A guilloche rosette in each city's ink around its landmark, and a mint one for the Mayor.
     const rings: [Pt, number][] = [
@@ -295,6 +296,16 @@ export class CityScene {
     ];
     for (const [[x, y], color] of rings) {
       const g = new Graphics();
+      if (!V.ornate) {
+        // Riviera: a soft plaza of light in the city's colour instead of a guilloche rosette.
+        g.circle(0, 0, 165).fill({ color, alpha: 0.1 });
+        g.circle(0, 0, 120).fill({ color, alpha: 0.12 });
+        g.circle(0, 0, 165).stroke({ width: 2, color, alpha: 0.5 });
+        g.position.set(x, y);
+        g.scale.set(1, TILT);
+        c.addChild(g);
+        continue;
+      }
       g.circle(0, 0, 150).fill({ color, alpha: 0.06 });
       rosette(g, 0, 0, 150, 24, color, 1.4, 0.55);
       rosette(g, 0, 0, 118, 18, color, 1, 0.35);
@@ -329,10 +340,12 @@ export class CityScene {
       }
     }
     waves.stroke({ width: 0.8, color: V.mint, alpha: V.lineAlpha * 2.2 });
+    if (!V.ornate) waves.visible = false;
     // 1° latitude / longitude lines, like an engraved chart.
     const grid = new Graphics();
     for (const line of GRATICULE) grid.poly(line.flat(), false);
     grid.stroke({ width: 0.9, color: V.mint, alpha: V.lineAlpha * 2.4 });
+    if (!V.ornate) grid.visible = false;
     // Neighbouring coasts: faint land, one echo contour, no buildings.
     const near = new Graphics();
     for (const ring of NEIGHBOURS) near.poly(ring.flat()).stroke({ width: 18, color: V.mint, alpha: 0.07, join: "round" });
@@ -343,6 +356,7 @@ export class CityScene {
     const nearMask = new Graphics();
     for (const ring of NEIGHBOURS) nearMask.poly(ring.flat()).fill(0xffffff);
     nearHatch.mask = nearMask;
+    if (!V.ornate) nearHatch.visible = false;
     c.addChild(waves, grid, near, nearMask, nearHatch);
     return c;
   }
@@ -350,6 +364,7 @@ export class CityScene {
   /** In open sea: a guilloche compass rose and a few rosette ornaments. */
   private drawOrnaments(): Container {
     const c = new Container();
+    if (!V.ornate) return c; // Riviera: open sunlit sea
     for (const [x, y] of ORNAMENTS) {
       const g = new Graphics();
       rosette(g, 0, 0, 64, 20, V.mint, 0.8, 0.35);

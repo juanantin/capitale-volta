@@ -17,13 +17,16 @@ export interface District {
   styles: [string, string, string];
   /** The token this city's buildings earn, or "vote": the token the weekly vote picks. */
   earns: TokenId | "vote";
+  /** Riviera theme: the city's crew and its social handle. */
+  crew: string;
+  handle: string;
 }
 
 export const DISTRICTS: District[] = [
-  { id: 0, city: "Milano", place: "milano", earns: 1, landmark: "Duomo", colour: "#d9b45a", light: "#3d3420", dark: "#a8821a", styles: ["Torre della Borsa", "Atelier", "Bosco Verticale"] },
-  { id: 1, city: "Roma", place: "roma", earns: 0, landmark: "Colosseo", colour: "#e0874f", light: "#3d2a1f", dark: "#c2541f", styles: ["Tempietto", "Villa Romana", "Fontana"] },
-  { id: 2, city: "Napoli", place: "napoli", earns: "vote", landmark: "Vesuvio", colour: "#e0648f", light: "#3b2230", dark: "#c23a6b", styles: ["Pizzeria", "Palazzo dei Quartieri", "Teatro"] },
-  { id: 3, city: "Venezia", place: "venezia", earns: 2, landmark: "Campanile", colour: "#5b8def", light: "#1f2c45", dark: "#2f62c4", styles: ["Palazzo sul Canale", "Fornace di Murano", "Bottega delle Maschere"] },
+  { id: 0, city: "Milano", crew: "I Sarti", handle: "@sarti.milano", place: "milano", earns: 1, landmark: "Duomo", colour: "#d9b45a", light: "#3d3420", dark: "#a8821a", styles: ["Torre della Borsa", "Atelier", "Bosco Verticale"] },
+  { id: 1, city: "Roma", crew: "I Gladiatori", handle: "@gladiatori.roma", place: "roma", earns: 0, landmark: "Colosseo", colour: "#e0874f", light: "#3d2a1f", dark: "#c2541f", styles: ["Tempietto", "Villa Romana", "Fontana"] },
+  { id: 2, city: "Napoli", crew: "I Lazzari", handle: "@lazzari.napoli", place: "napoli", earns: "vote", landmark: "Vesuvio", colour: "#e0648f", light: "#3b2230", dark: "#c23a6b", styles: ["Pizzeria", "Palazzo dei Quartieri", "Teatro"] },
+  { id: 3, city: "Venezia", crew: "Le Maschere", handle: "@maschere.venezia", place: "venezia", earns: 2, landmark: "Campanile", colour: "#5b8def", light: "#1f2c45", dark: "#2f62c4", styles: ["Palazzo sul Canale", "Fornace di Murano", "Bottega delle Maschere"] },
 ];
 
 /** Contract value for a city that follows the weekly vote (CapitaleVault.FOLLOWS_VOTE). */

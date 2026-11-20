@@ -11,19 +11,23 @@ import ThemeToggle from "./ThemeToggle";
 import { useTheme } from "../lib/theme";
 import { connectCity, savedCity } from "../lib/chain";
 import Logo from "./Logo";
+import { FeedPanel, FeedTab } from "./Feed";
+import NewsTicker from "./NewsTicker";
 import WhitePaper from "./WhitePaper";
 import { BuildTab, MyPalazzoTab, RankingsTab, SindacoTab, TownHallTab, TreasuryTab } from "./Panels";
 import { MAX_BUILDINGS, TOKENS } from "../lib/config";
 import { getCity, setLive, setMode, settleIfDue, tick, ui, useCity } from "../lib/store";
 
+// Riviera theme: the tabs are apps on the crew's phone.
 const TABS = [
-  { key: "build", label: "Build", icon: "" },
-  { key: "mine", label: "My Palazzo", icon: "" },
-  { key: "hall", label: "Town Hall", icon: "" },
-  { key: "rank", label: "Rankings", icon: "" },
-  { key: "treasury", label: "Treasury", icon: "" },
-  { key: "paper", label: "White Paper", icon: "" },
-  { key: "sindaco", label: "Il Sindaco", icon: "" },
+  { key: "feed", label: "Live", icon: "LV" },
+  { key: "build", label: "Move in", icon: "IN" },
+  { key: "mine", label: "Hideout", icon: "HQ" },
+  { key: "hall", label: "Next job", icon: "JB" },
+  { key: "rank", label: "Most wanted", icon: "MW" },
+  { key: "treasury", label: "The bank", icon: "BK" },
+  { key: "paper", label: "Rulebook", icon: "RB" },
+  { key: "sindaco", label: "The Mayor", icon: "MY" },
 ] as const;
 type TabKey = (typeof TABS)[number]["key"];
 
@@ -118,10 +122,10 @@ function Game() {
       </header>
 
       <section className="stats">
-        <div className="stat"><span>Residents</span><b>{city.buildings.length.toLocaleString()}<small>/{MAX_BUILDINGS.toLocaleString()}</small></b></div>
-        <div className="stat"><span>City tax</span><b>{compact(city.totalTax)} <small>VOLTA</small></b></div>
-        <div className="stat"><span>Purchases</span><b>{city.totalPurchases}</b></div>
-        <div className="stat" style={{ ["--c" as string]: ink(D) }}><span>Napoli this week</span><b className="week-token">{D.token}</b></div>
+        <div className="stat"><span>Crew</span><b>{city.buildings.length.toLocaleString()}<small>/{MAX_BUILDINGS.toLocaleString()}</small></b></div>
+        <div className="stat"><span>The take</span><b>{compact(city.totalTax)} <small>VOLTA</small></b></div>
+        <div className="stat"><span>Scores</span><b>{city.totalPurchases}</b></div>
+        <div className="stat" style={{ ["--c" as string]: ink(D) }}><span>Napoli&apos;s next job</span><b className="week-token">{D.token}</b></div>
         {/* Test mode is hidden: a triple click / tap on this chip opens the test lab. */}
         <button className={`stat live ${city.mode === "testnet" || city.live ? "on" : ""}`} onClick={onModeChipClick}>
           {city.mode === "preview" ? (
@@ -146,6 +150,7 @@ function Game() {
               <button className="close" onClick={() => setTab(null)} aria-label="Close">×</button>
             </div>
             <div className="sheet-body">
+              {tab === "feed" && <FeedTab />}
               {tab === "build" && <BuildTab />}
               {tab === "mine" && <MyPalazzoTab />}
               {tab === "hall" && <TownHallTab />}
@@ -174,6 +179,9 @@ function Game() {
           </div>
         </div>
       )}
+
+      <FeedPanel />
+      <NewsTicker />
 
       <nav className="tabs">
         {TABS.map((t) => (

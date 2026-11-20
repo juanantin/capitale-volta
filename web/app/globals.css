@@ -1590,3 +1590,414 @@ body,
 .link-btn:hover {
   color: var(--mint);
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════════════
+   RIVIERA THEME (branch theme-riviera): modern Italian coast, golden hour by default,
+   neon night as the dark theme. Social-feed city, bold condensed type, rounded "phone"
+   cards. Original look: no third-party game logos, fonts or characters.
+   ═══════════════════════════════════════════════════════════════════════════════════ */
+:root {
+  --void: #0c0a1f;
+  --plate: #17112f;
+  --forest: #1d1438;
+  --panel: #241a44;
+  --emerald: #6b3a7a;
+  --mint: #ff6fae;
+  --ivory: #fff0f6;
+  --muted: #c79ac0;
+  --border: #3a2a5e;
+  --up: #5cffc8;
+  --down: #ff5c7a;
+  --glow: 255 111 174;
+  --sunset: linear-gradient(120deg, #ffcf6e 0%, #ff8a5c 45%, #ff4f8b 100%);
+  --sea: #27b4c3;
+  --panel-from: #1d1438f0;
+  --panel-to: #120c28eb;
+  --panel-shadow: 0 18px 40px -18px #000000cc, inset 0 1px 0 #ffffff12;
+  --display: "Anton", "Impact", "Arial Narrow", sans-serif;
+  --sans: "Manrope", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --radius: 16px;
+  --ticker-h: 34px;
+}
+
+:root[data-theme="light"] {
+  --void: #fff3ea;
+  --plate: #ffe6d8;
+  --forest: #fff0e4;
+  --panel: #ffffff;
+  --emerald: #f3c2a8;
+  --mint: #e0457b;
+  --ivory: #2a0f22;
+  --muted: #8a5a6e;
+  --border: #f4cdbd;
+  --up: #0f9c8a;
+  --down: #d93a5e;
+  --glow: 224 69 123;
+  --panel-from: #fffffff2;
+  --panel-to: #fff5eeeb;
+  --panel-shadow: 0 14px 34px -16px #9b3d5a66, inset 0 1px 0 #ffffff;
+}
+
+/* Golden-hour haze over the top of the map (night: violet haze). */
+.map::after {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 42%;
+  pointer-events: none;
+  background: linear-gradient(180deg, #ff8a7a59 0%, #ffb27a33 35%, #ffd59a14 65%, transparent 100%);
+}
+:root:not([data-theme="light"]) .map::after {
+  background: linear-gradient(180deg, #7b2ff74d 0%, #ff4f8b1f 40%, transparent 100%);
+}
+
+/* Rounded phone-app cards instead of Volta's square plates. */
+.surface,
+.token-card,
+.stat,
+.sheet,
+.tabs,
+.building-card,
+.banner,
+.btn,
+.lab-panel,
+.district-btn,
+.style-btn,
+.ca {
+  border-radius: var(--radius);
+}
+.btn.small,
+.tag,
+.this-week {
+  border-radius: 999px;
+}
+.sheet {
+  border-radius: 22px 22px 0 0;
+}
+
+/* Type: bold condensed display, uppercase. */
+.logo-name,
+.banner-token,
+.stat b,
+.token-name,
+.sheet-head h2,
+.big,
+h2,
+h3 {
+  font-family: var(--display);
+  font-weight: 400;
+  letter-spacing: 0.02em;
+}
+.sheet-head h2,
+.token-name {
+  text-transform: uppercase;
+}
+
+.logo-name {
+  font-size: 34px;
+  text-transform: uppercase;
+  font-style: italic;
+  color: var(--ivory);
+  text-shadow: 3px 3px 0 #ff4f8b, 6px 6px 0 #ffcf6e55;
+}
+:root:not([data-theme="light"]) .logo-name {
+  color: #fff;
+  text-shadow: 0 0 8px #ff4f8b, 0 0 22px #ff4f8b99, 3px 3px 0 #7b2ff7;
+}
+.logo-kicker {
+  color: var(--mint);
+}
+
+/* City banners: crew line and a sunset tag for the turf leader. */
+.banner {
+  padding: 7px 16px 8px;
+  border-width: 2px;
+  border-color: var(--c);
+}
+.banner-token {
+  font-size: 24px;
+  letter-spacing: 0.06em;
+  color: var(--ivory);
+}
+.banner-crew {
+  font-family: var(--sans);
+  font-weight: 800;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--c);
+  margin-top: 1px;
+}
+.this-week,
+:root[data-theme="light"] .this-week {
+  background: var(--sunset);
+  color: #2a0f22;
+  border: 0;
+  font-weight: 700;
+  padding: 3px 8px;
+}
+.banner-tokens i,
+.banner-tokens em {
+  border-radius: 999px;
+}
+
+/* The score: a tilted sunset card that slams in. */
+.buy-toast,
+:root[data-theme="light"] .buy-toast {
+  background: var(--sunset);
+  border: 0;
+  border-radius: 10px;
+  color: #2a0f22;
+  padding: 10px 26px 12px;
+  box-shadow: 7px 7px 0 #2a0f22, 0 18px 50px -10px #ff4f8b99;
+  bottom: calc(var(--tabs-h) + var(--ticker-h) + env(safe-area-inset-bottom) + 22px);
+  animation: slam 3.6s cubic-bezier(0.2, 0.9, 0.25, 1.2) forwards;
+}
+.buy-toast b {
+  font-family: var(--display);
+  font-weight: 400;
+  font-size: 40px;
+  line-height: 1;
+  color: #fff;
+  text-shadow: 3px 3px 0 #2a0f22;
+}
+.buy-toast .kicker {
+  color: #2a0f22;
+  font-weight: 700;
+  letter-spacing: 0.3em;
+}
+@keyframes slam {
+  0% { opacity: 0; transform: translateX(-50%) rotate(-12deg) scale(1.6); }
+  10% { opacity: 1; transform: translateX(-50%) rotate(-3deg) scale(1); }
+  85% { opacity: 1; transform: translateX(-50%) rotate(-3deg) scale(1); }
+  100% { opacity: 0; transform: translateX(-50%) rotate(-3deg) translateY(20px) scale(0.96); }
+}
+
+/* Live feed (wide screens): a phone-style card on the left. */
+.feed-panel {
+  position: absolute;
+  left: 16px;
+  bottom: calc(var(--tabs-h) + var(--ticker-h) + 22px);
+  width: 300px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  z-index: 3;
+  pointer-events: none;
+}
+.feed-title {
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  color: var(--ivory);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  text-shadow: 0 1px 0 var(--void);
+}
+.live-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #ff3b5c;
+  box-shadow: 0 0 0 3px #ff3b5c44;
+  animation: pulse 1.4s infinite;
+}
+@keyframes pulse {
+  50% { box-shadow: 0 0 0 7px #ff3b5c00; }
+}
+.post {
+  display: flex;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  background: linear-gradient(180deg, var(--panel-from), var(--panel-to));
+  box-shadow: var(--panel-shadow);
+  border: 1px solid var(--border);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  animation: post-in 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+@keyframes post-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+}
+.post.score {
+  border-left: 3px solid var(--t);
+}
+.avatar {
+  flex: none;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-family: var(--display);
+  font-size: 13px;
+  color: #fff;
+  background: var(--c);
+  box-shadow: 0 0 0 2px var(--void), 0 0 0 3.5px var(--c);
+}
+.post-body {
+  min-width: 0;
+}
+.post-head {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  font-size: 12px;
+}
+.post-head b {
+  font-weight: 800;
+  color: var(--ivory);
+}
+.post-head span {
+  color: var(--muted);
+  font-size: 11px;
+}
+.post p {
+  margin: 2px 0 0;
+  font-size: 12.5px;
+  line-height: 1.4;
+  color: var(--ivory);
+}
+.post-tag {
+  display: inline-block;
+  margin-top: 5px;
+  font-family: var(--mono);
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: var(--t);
+  color: #fff;
+}
+.feed-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.feed-list .post {
+  backdrop-filter: none;
+}
+@media (max-width: 900px) {
+  .feed-panel {
+    display: none;
+  }
+}
+
+/* Breaking-news ticker above the tab bar. */
+.ticker {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: calc(var(--tabs-h) + env(safe-area-inset-bottom));
+  height: var(--ticker-h);
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+  background: #2a0f22;
+  color: #fff;
+  z-index: 4;
+  font-size: 12px;
+  font-weight: 600;
+}
+.ticker-label {
+  flex: none;
+  height: 100%;
+  display: grid;
+  place-items: center;
+  padding: 0 12px;
+  font-family: var(--display);
+  font-size: 15px;
+  letter-spacing: 0.08em;
+  background: var(--sunset);
+  color: #2a0f22;
+}
+.ticker.hot {
+  background: #5a0a1c;
+}
+.ticker.hot .ticker-label {
+  background: #ff3b5c;
+  color: #fff;
+  animation: siren 0.9s steps(2) infinite;
+}
+@keyframes siren {
+  50% { background: #3f8cff; }
+}
+.ticker-track {
+  flex: 1;
+  overflow: hidden;
+  white-space: pre;
+}
+.ticker-track span {
+  display: inline-block;
+  padding-left: 16px;
+  animation: crawl 60s linear infinite;
+}
+@keyframes crawl {
+  to { transform: translateX(-50%); }
+}
+
+/* The tab bar as a phone dock: round app icons. */
+.tabs {
+  border-radius: 0;
+}
+.tabs button {
+  gap: 4px;
+}
+.ti {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+  font-family: var(--display);
+  font-size: 13px;
+  letter-spacing: 0.02em;
+  color: #fff;
+  background: var(--sunset);
+  box-shadow: 0 4px 10px -4px #ff4f8b99;
+}
+.tabs button:nth-child(2) .ti { background: linear-gradient(135deg, #3ff5ff, #27b4c3); }
+.tabs button:nth-child(3) .ti { background: linear-gradient(135deg, #ffd166, #ff8a3d); }
+.tabs button:nth-child(4) .ti { background: linear-gradient(135deg, #b98cff, #7b2ff7); }
+.tabs button:nth-child(5) .ti { background: linear-gradient(135deg, #ff8a3d, #ff3b5c); }
+.tabs button:nth-child(6) .ti { background: linear-gradient(135deg, #5cffc8, #0f9c8a); }
+.tabs button:nth-child(7) .ti { background: linear-gradient(135deg, #8a9bb0, #4a5a70); }
+.tabs button:nth-child(8) .ti { background: linear-gradient(135deg, #ffcf6e, #e0a030); }
+.tabs button.on .ti {
+  transform: translateY(-2px);
+  box-shadow: 0 0 0 2px var(--void), 0 0 0 4px var(--mint);
+}
+.tl {
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+:root {
+  --tabs-h: 64px;
+}
+@media (min-width: 900px) {
+  .ticker {
+    bottom: 0;
+  }
+  .tabs {
+    bottom: calc(var(--ticker-h) + 10px);
+    border-radius: 20px;
+    width: min(1040px, calc(100vw - 32px));
+    justify-content: space-between;
+  }
+}
+
+/* The map canvas can leave a thin gap at the top edge: paint it the sea colour. */
+.map {
+  background: #0f1838;
+}
+:root[data-theme="light"] .map {
+  background: #27b4c3;
+}

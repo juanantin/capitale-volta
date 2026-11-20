@@ -22,7 +22,7 @@ let current: Theme = typeof window === "undefined" ? "light" : read();
 function apply(t: Theme) {
   if (typeof document === "undefined") return;
   document.documentElement.dataset.theme = t;
-  document.querySelector('meta[name="theme-color"]')?.setAttribute("content", t === "light" ? "#edf5f2" : "#041510");
+  document.querySelector('meta[name="theme-color"]')?.setAttribute("content", t === "light" ? "#ffb48a" : "#0c0a1f");
 }
 
 if (typeof window !== "undefined") apply(current);

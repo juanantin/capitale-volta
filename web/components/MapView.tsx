@@ -121,8 +121,9 @@ export default function MapView() {
         ))}
         {DISTRICTS.map((D, i) => (
           <div key={D.city} ref={(el) => { banners.current[i] = el; }} className="banner" style={{ ["--c" as string]: ink(D), ["--cd" as string]: D.dark }}>
-            {leader === D.id && <span className="this-week">LEADING</span>}
+            {leader === D.id && <span className="this-week">TURF LEADER</span>}
             <span className="banner-token">{D.city.toUpperCase()}</span>
+            <span className="banner-crew">{D.crew}</span>
             <span className="banner-city">{city.districtCount[D.id]?.toLocaleString() ?? 0} palazzi</span>
             {/* The token this city earns; Napoli's is picked by the weekly vote. */}
             <span className="banner-tokens" aria-label={`Earns ${TOKENS[cityToken(D, city.currentToken)].token}`}>
@@ -141,12 +142,12 @@ export default function MapView() {
       {!ready && <div className="map-loading">Building the city…</div>}
       {toast && (
         <div key={toast.key} className="buy-toast" style={{ ["--c" as string]: ink(TOKENS[toast.token]) }} onAnimationEnd={() => setToast(null)}>
-          <span className="kicker">The city bought</span>
+          <span className="kicker">The score</span>
           <b>
             {Math.round(toast.tokens).toLocaleString()} {TOKENS[toast.token].token}
           </b>
           <span className="kicker">
-            for {toast.buildings.toLocaleString()} palazzi in{" "}
+            split {toast.buildings.toLocaleString()} ways in{" "}
             {DISTRICTS.filter((d) => cityToken(d, city.currentToken) === toast.token).map((d) => d.city).join(" and ")}
           </span>
         </div>
@@ -154,8 +155,8 @@ export default function MapView() {
       {sel && d && (
         <div className="building-card" style={{ ["--c" as string]: ink(d) }}>
           <button className="close" onClick={() => { setSelected(null); sceneRef.current?.select(null); }} aria-label="Close">×</button>
-          <div className="bc-title">Palazzo #{sel.id}</div>
-          <div className="bc-sub">{d.city} · {d.styles[sel.style]}</div>
+          <div className="bc-title">Hideout #{sel.id}</div>
+          <div className="bc-sub">{d.crew} · {d.city} · {d.styles[sel.style]}</div>
           <div className="bc-earns">
             Earns {TOKENS[cityToken(d, city.currentToken)].token}
             {d.earns === "vote" ? " this week (picked by the vote)" : ""}
