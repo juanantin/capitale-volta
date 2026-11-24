@@ -124,8 +124,34 @@ a replay of recent events on arrival), share links `?palazzo=N`, send a palazzo 
 wallet, the wallet's token balance on its button, open-in-wallet-app on phones, Treasury
 buttons (collect fees, claim holder rewards, buy). Keeper: `keeper/keeper.mjs` + the GitHub
 workflow (an outside timer like cron-job.org is more reliable than GitHub's schedule).
+Also ported: the NFT image restyled to the site's look (VICE did the same for Miami),
+`cleanUrls` in `vercel.json`, a 6M gas limit on the site's Buy button (wallets under-estimate).
+Audited 24 Nov 2026: every VICE change since the copy was checked; the rest is Miami/VICE
+branding, Miami map code, brand images, or Volta-only.
 Not ported yet (Volta-specific, need Montra versions): price oracle, swap adapter, launch
 wizard `/launch`, `script/DeployCity.s.sol`, `LAUNCH.md`, fork tests.
+
+### VICE's launch lessons to apply here
+- Montra pools live in the same Uniswap v4 PoolManager as Volta's
+  (0xe2e105d3f7209a9da11f83ccf3e7398a753823f1): VICE's `src/volta/TickPrice.sol` (+ its
+  tests) and much of `VoltaSwapAdapter` (direct PoolManager swaps via the unlock callback) can
+  be reused for Montra; its `ViceOracle` can't (it reads Volta's own Oracle, Montra has none).
+- The vault's reference price for a reward token must include the pool fees on its route
+  (Montra fee tiers 1-10% per hop; MONTRA is two hops via KNTQ), so the 4% band measures
+  slippage only. Otherwise every buy is rejected.
+- HYPE/USD: a stored reference moved by a keeper `poke()` (≥5 min apart, ±2% per step), so
+  flash manipulation can't move build prices.
+- Build-price TWAP: VICE settled for Volta's 10-minute window; the spec asks 30-60 min.
+- Launch order: the city must be the fee recipient before trading starts, or the first fees go
+  to the launch wallet. On Montra the token and pool ids are predictable before launch
+  (token = clone(keccak(sender, salt)); pool id from its PoolKey), so the vault can be deployed
+  first and named in `feeRecipients` at launch; otherwise `updateRecipient` right after.
+- Ownership: the vault is owned by the 48h timelock from deployment; pricing hands ownership to
+  the timelock after launch (accepted 48h later).
+- Default buy sizes that worked: $20 minimum, $150 maximum per order (in HYPE at deploy).
+- The keeper signs locally and sends 30% more gas than estimated; an outside timer
+  (cron-job.org) starts it every 10 minutes.
+- Some browsers can't reach the public RPC: the site falls back to the player's wallet.
 
 ## Frontend
 Stockopolis screens: token header (name, CA, "via Montra · Elysium"); city stats (residents

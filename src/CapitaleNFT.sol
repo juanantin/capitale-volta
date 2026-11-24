@@ -203,27 +203,31 @@ contract CapitaleNFT is ERC721Enumerable, ReentrancyGuard {
         return super.supportsInterface(interfaceId);
     }
 
+    /// @dev The NFT image, in the site's Montra look: black, a thin gold frame, the building's
+    ///      floors outlined in its city's colour (one per level, up to 12 drawn), the city name
+    ///      and the number in gold.
     function _svg(uint256 id, Building memory b, uint256 level, bool mayor) internal pure returns (string memory) {
-        string memory colour = mayor ? "#f4a6b8" : _colour(b.district);
+        string memory colour = mayor ? "#e9b64a" : _colour(b.district);
         uint256 floors = level > 12 ? 12 : level;
         string memory stack;
         for (uint256 i; i < floors; ++i) {
             stack = string.concat(
                 stack,
-                '<rect x="130" y="',
+                '<rect x="132" y="',
                 (250 - i * 16).toString(),
-                '" width="100" height="14" rx="3" fill="',
+                '" width="96" height="13" rx="1" fill="#161616" stroke="',
                 colour,
-                '" stroke="#5b4636" stroke-width="2"/>'
+                '" stroke-width="1.6"/>'
             );
         }
         return string.concat(
-            '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 360"><rect width="360" height="360" fill="#7fd6d0"/>',
-            '<ellipse cx="180" cy="275" rx="140" ry="40" fill="#f3dfa2"/><ellipse cx="180" cy="270" rx="125" ry="32" fill="#a8dd8f"/>',
+            '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 360"><rect width="360" height="360" fill="#050505"/>',
+            '<rect x="12" y="12" width="336" height="336" fill="none" stroke="#e9b64a" stroke-opacity="0.6"/>',
+            '<ellipse cx="180" cy="270" rx="128" ry="30" fill="#121212" stroke="#e9b64a" stroke-opacity="0.45"/>',
             stack,
-            '<text x="180" y="44" text-anchor="middle" font-family="sans-serif" font-size="30" font-weight="bold" fill="#3c2f2f">',
+            '<text x="180" y="52" text-anchor="middle" font-family="Georgia, serif" font-size="30" fill="#f2f2f2">',
             mayor ? "IL SINDACO" : _cityName(b.district),
-            '</text><text x="180" y="72" text-anchor="middle" font-family="sans-serif" font-size="18" fill="#3c2f2f">',
+            '</text><text x="180" y="80" text-anchor="middle" font-family="monospace" font-size="15" letter-spacing="3" fill="#e9b64a">',
             "CAPITALE #",
             id.toString(),
             "</text></svg>"
@@ -239,10 +243,11 @@ contract CapitaleNFT is ERC721Enumerable, ReentrancyGuard {
     }
 
     function _colour(uint8 d) internal pure returns (string memory) {
-        if (d == 0) return "#f2c94c"; // gold
-        if (d == 1) return "#f2994a"; // orange
-        if (d == 2) return "#e0648f"; // rose
-        if (d == 3) return "#56ccf2"; // blue
-        return "#5fc48a"; // green
+        // The same city inks as the site.
+        if (d == 0) return "#d9b45a"; // Milano gold
+        if (d == 1) return "#e0874f"; // Roma orange
+        if (d == 2) return "#e0648f"; // Napoli rose
+        if (d == 3) return "#5b8def"; // Venezia blue
+        return "#5fc48a"; // Palermo green
     }
 }

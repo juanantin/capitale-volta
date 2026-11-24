@@ -426,7 +426,9 @@ export const testActions = {
   /** Claims the HYPE that reward tokens paying their holders owe the vault (it becomes city tax). */
   claimHolderRewards: () => send({ address: need().vault, abi: vaultAbi, functionName: "claimHolderRewards" } as never),
   async requestBuy() {
-    const r = await send({ address: need().vault, abi: vaultAbi, functionName: "requestBuy" } as never);
+    // Wallets under-estimate gas for these swaps (VICE's lesson), and the vault refuses a call
+    // that can't cover its fixed 4M buy budget: send a generous limit.
+    const r = await send({ address: need().vault, abi: vaultAbi, functionName: "requestBuy", gas: 6_000_000n } as never);
     const logs = parseEventLogs({ abi: vaultAbi, logs: r.logs });
     const names = logs.map((l) => l.eventName);
     if (names.includes("Bought")) return "Bought! Each city's token was added to its palazzi.";
