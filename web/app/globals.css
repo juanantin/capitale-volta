@@ -1690,7 +1690,8 @@ h3 {
   letter-spacing: 0.01em;
 }
 .logo-name {
-  font-size: 34px;
+  font-size: 32px;
+  letter-spacing: 0.06em;
   color: var(--ivory);
 }
 .logo-kicker,

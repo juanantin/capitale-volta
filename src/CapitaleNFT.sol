@@ -11,7 +11,7 @@ import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 import {ICapitalePricing} from "./interfaces/ICapitalePricing.sol";
 import {ICapitaleVault} from "./interfaces/ICapitaleVault.sol";
 
-/// @title CapitaleNFT ("Capitale" / PALAZZO)
+/// @title CapitaleNFT ("CAPITALE" / PALAZZO)
 /// @notice One NFT per building. 3,000 residential buildings plus the Mayor's building #0.
 ///         Build by burning $CAPITALE: choose a district (0-3) and a style (0-2), both permanent.
 ///         Numbers are sequential city-wide; within a district, plots are handed out from the
@@ -74,7 +74,7 @@ contract CapitaleNFT is ERC721Enumerable, ReentrancyGuard {
     error BadConfig();
 
     constructor(IERC20 capitale_, ICapitalePricing pricing_, address mayorOwner, uint8 districts_)
-        ERC721("Capitale", "PALAZZO")
+        ERC721("CAPITALE", "PALAZZO")
     {
         if (address(capitale_) == address(0) || address(pricing_) == address(0) || mayorOwner == address(0)) {
             revert BadConfig();
@@ -186,9 +186,9 @@ contract CapitaleNFT is ERC721Enumerable, ReentrancyGuard {
             '"}]'
         );
         string memory json = string.concat(
-            '{"name":"Capitale #',
+            '{"name":"CAPITALE #',
             id.toString(),
-            '","description":"A palazzo in Capitale, a city of Italy on Elysium, launched on Montra.","image":"data:image/svg+xml;base64,',
+            '","description":"A palazzo in CAPITALE, a city of Italy on Elysium, launched on Montra.","image":"data:image/svg+xml;base64,',
             Base64.encode(bytes(_svg(id, b, level, mayor))),
             '","attributes":',
             attrs,
@@ -224,7 +224,7 @@ contract CapitaleNFT is ERC721Enumerable, ReentrancyGuard {
             '<text x="180" y="44" text-anchor="middle" font-family="sans-serif" font-size="30" font-weight="bold" fill="#3c2f2f">',
             mayor ? "IL SINDACO" : _cityName(b.district),
             '</text><text x="180" y="72" text-anchor="middle" font-family="sans-serif" font-size="18" fill="#3c2f2f">',
-            "Capitale #",
+            "CAPITALE #",
             id.toString(),
             "</text></svg>"
         );

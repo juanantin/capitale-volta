@@ -3,9 +3,10 @@
 // (in HYPE) is the city tax. Contract addresses are filled in after the launch.
 
 /** The game's name, ticker and words for a building. Change them here and the whole site follows.
- *  (The NFT's name "Capitale" and symbol PALAZZO are strings in src/CapitaleNFT.sol.) */
+ *  The name is written in caps everywhere, like the token (Juan, Nov 2026). (The NFT's name
+ *  "CAPITALE" and symbol PALAZZO are strings in src/CapitaleNFT.sol.) */
 export const GAME = {
-  name: "Capitale",
+  name: "CAPITALE",
   /** Shown as $TICKER. */
   ticker: "CAPITALE",
   tagline: "Italy · on Montra",

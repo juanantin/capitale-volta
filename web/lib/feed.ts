@@ -79,9 +79,9 @@ export function startFeed() {
   // The real city only shows real events; the sample posts are for the preview.
   const realCity = !!LIVE.vault || (typeof window !== "undefined" && !!new URLSearchParams(window.location.search).get("city"));
   const seed: Omit<Post, "id" | "at">[] = realCity
-    ? [{ handle: NEWS, city: null, kind: "news", text: "Capitale is open. Pick a city, build a palazzo, earn its token." }]
+    ? [{ handle: NEWS, city: null, kind: "news", text: `${GAME.name} is open. Pick a city, build a palazzo, earn its token.` }]
     : PRELAUNCH
-    ? [{ handle: NEWS, city: null, kind: "news", text: `Capitale opens soon. ${TICKER} launches on Montra: 3,000 palazzi, five cities, five tokens.` }]
+    ? [{ handle: NEWS, city: null, kind: "news", text: `${GAME.name} opens soon. ${TICKER} launches on Montra: 3,000 palazzi, five cities, five tokens.` }]
     : [
     { handle: NEWS, city: null, kind: "news", text: "Street race: Milano leads the week on new palazzi. Roma three behind." },
     { handle: DISTRICTS[3].handle, city: 3, kind: "score", token: 2, text: "The city bought 1,210,400 EACCAT for Venezia: shared by 224 palazzi." },

@@ -9,7 +9,8 @@ cities of Italy on **Elysium** (chain id 99901, gas in HYPE), launched on **Mont
   here (see "From VICE"); never push to it from this project;
 - `juanantin/capitale`: the old Base / STONKEX version.
 
-Capitale is a replica of **Stockopolis ("Stock City")**. The owner, Juan, is an animation
+Capitale is a replica of **Stockopolis ("Stock City")**. In the product the name is always
+written in caps, like the token: CAPITALE and $CAPITALE (Juan, Nov 2026; `GAME.name`). The owner, Juan, is an animation
 director with little Solidity experience: work autonomously, explain decisions in plain
 language, and ask only when a decision is genuinely his.
 
@@ -81,7 +82,7 @@ the token per city at deploy (max 5 each).
 - **Buildings (CapitaleNFT):** 3,000 + Mayor #0 at deploy; mint(district, style, inviter,
   maxPrice); 5 cities × 3 styles, permanent; burn to dead address; sequential numbers; plots
   per city nearest-to-farthest from the landmark; freely transferable; rewards and height
-  follow the NFT; invite decorations only. Non-upgradeable. Name "Capitale", symbol "PALAZZO",
+  follow the NFT; invite decorations only. Non-upgradeable. Name "CAPITALE", symbol "PALAZZO",
   no royalties. tokenURI returns name, image and attributes (city, style, level, invites).
 - **Pricing (CapitalePricing):** early bird 300 units at 40 USD for 6h, then tiers 52 / 68 /
   88 / 120 USD at #800 / #1500 / #2300 / #3000; tokens to burn = USD target / price;

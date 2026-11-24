@@ -155,7 +155,7 @@ function makeClosed(): CityState {
   };
 }
 
-const NOT_OPEN = "Capitale isn't open yet: building and claiming start at launch.";
+const NOT_OPEN = "CAPITALE isn't open yet: building and claiming start at launch.";
 
 function makeInitial(): CityState {
   if (PRELAUNCH) return makeClosed();

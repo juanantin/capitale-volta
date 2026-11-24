@@ -15,7 +15,7 @@ contract CapitaleNFTTest is BaseTest {
     }
 
     function test_metadataAndMayor() public view {
-        assertEq(nft.name(), "Capitale");
+        assertEq(nft.name(), "CAPITALE");
         assertEq(nft.symbol(), "PALAZZO");
         assertEq(nft.ownerOf(0), mayor);
         assertEq(nft.totalResidents(), 0);
