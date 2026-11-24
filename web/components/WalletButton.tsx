@@ -1,14 +1,16 @@
 "use client";
 
 import { useState } from "react";
-import { useAccount, useConnect, useDisconnect } from "wagmi";
+import { useAccount, useDisconnect } from "wagmi";
+import WalletSheet, { useConnectWallet } from "./WalletSheet";
 import { useCity } from "../lib/store";
+import { GAME, PRELAUNCH, TICKER } from "../lib/config";
 
 export const short = (a: string) => `${a.slice(0, 6)}…${a.slice(-4)}`;
 
 export default function WalletButton() {
   const { address, isConnected } = useAccount();
-  const { connect, connectors, isPending } = useConnect();
+  const { connectWallet, isPending } = useConnectWallet();
   const { disconnect } = useDisconnect();
   const city = useCity();
   const [notice, setNotice] = useState(false);
@@ -17,13 +19,18 @@ export default function WalletButton() {
     return (
       <button className="btn wallet on" onClick={() => disconnect()} title="Disconnect">
         ● {short(address)}
+        {/* The token balance once the city has read this wallet. */}
+        {city.mode === "testnet" && city.me === address.toLowerCase() && (
+          <span className="wallet-bal">
+            {city.capitaleBalance.toLocaleString("en-US", { notation: "compact", maximumFractionDigits: 1 })} {TICKER}
+          </span>
+        )}
       </button>
     );
   }
-  const injected = connectors[0];
   const doConnect = () => {
     setNotice(false);
-    if (injected) connect({ connector: injected });
+    connectWallet();
   };
   return (
     <>
@@ -35,6 +42,7 @@ export default function WalletButton() {
       >
         {isPending ? "Connecting…" : "Connect wallet"}
       </button>
+      <WalletSheet />
       {notice && (
         <div
           className="lab-dialog"
@@ -45,19 +53,27 @@ export default function WalletButton() {
         >
           <div className="lab-panel preview-notice">
             <div className="sheet-head">
-              <h2>Preview mode</h2>
+              <h2>{PRELAUNCH ? "Opening soon" : "Preview mode"}</h2>
               <button className="close" onClick={() => setNotice(false)} aria-label="Close">×</button>
             </div>
             <div className="sheet-body">
+              {PRELAUNCH ? (
+                <p>
+                  {GAME.name} has not launched yet. The city is empty until launch day: then 3,000 {GAME.buildings} open
+                  and the first players build.
+                  {GAME.x && <> Follow <a href={GAME.x} target="_blank" rel="noreferrer">{GAME.xHandle}</a> for the date.</>}
+                </p>
+              ) : (
+                <p>
+                  {GAME.name} has not launched yet. You are looking at a <b>preview</b>: the {GAME.buildings}, the purchases and
+                  the rewards on the map are sample data.
+                </p>
+              )}
               <p>
-                Capitale has not launched yet. You are looking at a <b>preview</b>: the palazzi, the purchases and
-                the rewards on the map are sample data.
-              </p>
-              <p>
-                Building, voting and claiming open when <b>$CAPITALE</b> launches on <b>Volta</b>, on the Elysium
+                Building and claiming open when <b>{TICKER}</b> launches on <b>Montra</b>, on the Elysium
                 chain. Until then there is nothing to connect a wallet to.
               </p>
-              <button className="btn primary wide" onClick={() => setNotice(false)}>Explore the preview</button>
+              <button className="btn primary wide" onClick={() => setNotice(false)}>{PRELAUNCH ? "Explore the map" : "Explore the preview"}</button>
               <button className="link-btn" onClick={doConnect}>Connect anyway</button>
             </div>
           </div>

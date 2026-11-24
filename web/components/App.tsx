@@ -9,25 +9,23 @@ import TestLab from "./TestLab";
 import WalletButton from "./WalletButton";
 import ThemeToggle from "./ThemeToggle";
 import { useTheme } from "../lib/theme";
-import { connectCity, savedCity } from "../lib/chain";
+import { chainError, connectCity, isLiveCity, savedCity } from "../lib/chain";
 import Logo from "./Logo";
 import { FeedPanel, FeedTab } from "./Feed";
-import NewsTicker from "./NewsTicker";
+import Guide from "./Guide";
 import WhitePaper from "./WhitePaper";
-import { BuildTab, MyPalazzoTab, RankingsTab, SindacoTab, TownHallTab, TreasuryTab } from "./Panels";
-import { MAX_BUILDINGS, TOKENS } from "../lib/config";
-import { getCity, setLive, setMode, settleIfDue, tick, ui, useCity } from "../lib/store";
+import { BuildTab, MyPalazzoTab, RankingsTab, SindacoTab, TreasuryTab } from "./Panels";
+import { DISTRICTS, GAME, LIVE, MAX_BUILDINGS, PRELAUNCH, TICKER } from "../lib/config";
+import { getCity, onCityEvent, setLive, setMode, settleIfDue, tick, ui, useCity } from "../lib/store";
 
-// Riviera theme: the tabs are apps on the crew's phone.
 const TABS = [
-  { key: "feed", label: "Live", icon: "LV" },
-  { key: "build", label: "Move in", icon: "IN" },
-  { key: "mine", label: "Hideout", icon: "HQ" },
-  { key: "hall", label: "Next job", icon: "JB" },
-  { key: "rank", label: "Most wanted", icon: "MW" },
-  { key: "treasury", label: "The bank", icon: "BK" },
-  { key: "paper", label: "Rulebook", icon: "RB" },
-  { key: "sindaco", label: "The Mayor", icon: "MY" },
+  { key: "build", label: "Build", icon: "" },
+  { key: "mine", label: "My Palazzi", icon: "" },
+  { key: "feed", label: "Live", icon: "" },
+  { key: "rank", label: "Rankings", icon: "" },
+  { key: "treasury", label: "Treasury", icon: "" },
+  { key: "paper", label: "White Paper", icon: "" },
+  { key: "sindaco", label: "Il Sindaco", icon: "" },
 ] as const;
 type TabKey = (typeof TABS)[number]["key"];
 
@@ -84,9 +82,13 @@ function Game() {
   };
   const [copied, setCopied] = useState(false);
 
+  // "Show on map" (and tapping a palazzo in a list) flies the camera there: close the panel so
+  // the move and the building are visible.
+  useEffect(() => onCityEvent((e) => { if (e.type === "focus") setTab(null); }), []);
+
   useEffect(() => {
-    // A shared test-city link (?city=0x…) opens straight into testnet mode.
-    if (new URLSearchParams(window.location.search).get("city")) setMode("testnet");
+    // After launch the real city loads by default; a shared test-city link (?city=0x…) opens that one.
+    if (LIVE.vault || new URLSearchParams(window.location.search).get("city")) setMode("testnet");
     const a = setInterval(tick, 3200);
     const b = setInterval(() => settleIfDue(Math.floor(Date.now() / 1000)), 1000);
     return () => {
@@ -96,7 +98,11 @@ function Game() {
   }, []);
 
   ui.panelOpen = tab !== null;
-  const D = TOKENS[city.currentToken];
+  // The real city (after launch), also while it is still loading.
+  const liveCity = city.chain ? isLiveCity(city.chain.vault) : !!LIVE.vault && typeof window !== "undefined" && !new URLSearchParams(window.location.search).get("city");
+  // The city leading this week's street race (most new palazzi; none on a tie).
+  const top = Math.max(0, ...city.newBuilds);
+  const leader = top > 0 && city.newBuilds.filter((n) => n === top).length === 1 ? DISTRICTS[city.newBuilds.indexOf(top)] : null;
   const current = TABS.find((t) => t.key === tab);
 
   return (
@@ -106,11 +112,27 @@ function Game() {
 
       <header className="top">
         <div className="token-card">
-          <div className="token-name">$CAPITALE</div>
-          <button className="ca" onClick={() => { setCopied(true); setTimeout(() => setCopied(false), 1200); }}>
-            CA: {copied ? "announced at launch" : "coming soon"}
+          <div className="token-name">{TICKER}</div>
+          <div className="ca-row">
+          <button
+            className="ca"
+            onClick={() => {
+              if (LIVE.capitale) navigator.clipboard?.writeText(LIVE.capitale).catch(() => {});
+              setCopied(true);
+              setTimeout(() => setCopied(false), 1200);
+            }}
+          >
+            CA: {LIVE.capitale ? (copied ? "copied" : `${LIVE.capitale.slice(0, 6)}…${LIVE.capitale.slice(-4)}`) : copied ? "announced at launch" : "coming soon"}
           </button>
-          <div className="via">via <b>Volta</b> · Elysium</div>
+            {GAME.x && (
+              <a className="x-link" href={GAME.x} target="_blank" rel="noreferrer" aria-label={`${GAME.name} on X`} title={`${GAME.xHandle ?? GAME.name} on X`}>
+                <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor" aria-hidden>
+                  <path d="M17.75 3h3.07l-6.7 7.66L22 21h-6.17l-4.83-6.32L5.47 21H2.4l7.17-8.2L2 3h6.33l4.37 5.77L17.75 3Zm-1.08 16.2h1.7L7.4 4.73H5.58L16.67 19.2Z" />
+                </svg>
+              </a>
+            )}
+          </div>
+          <div className="via">via <b>Montra</b> · Elysium</div>
         </div>
         <div className="top-right">
           <Logo />
@@ -122,21 +144,21 @@ function Game() {
       </header>
 
       <section className="stats">
-        <div className="stat"><span>Crew</span><b>{city.buildings.length.toLocaleString()}<small>/{MAX_BUILDINGS.toLocaleString()}</small></b></div>
-        <div className="stat"><span>The take</span><b>{compact(city.totalTax)} <small>VOLTA</small></b></div>
-        <div className="stat"><span>Scores</span><b>{city.totalPurchases}</b></div>
-        <div className="stat" style={{ ["--c" as string]: ink(D) }}><span>Napoli&apos;s next job</span><b className="week-token">{D.token}</b></div>
+        <div className="stat"><span>Residents</span><b>{city.buildings.length.toLocaleString()}<small>/{MAX_BUILDINGS.toLocaleString()}</small></b></div>
+        <div className="stat"><span>City tax</span><b>{compact(city.totalTax)} <small>HYPE</small></b></div>
+        <div className="stat"><span>Purchases</span><b>{city.totalPurchases}</b></div>
+        <div className="stat" style={leader ? { ["--c" as string]: ink(leader) } : undefined}><span>Leading this week</span><b className="week-token">{leader ? leader.city : "Tied"}</b></div>
         {/* Test mode is hidden: a triple click / tap on this chip opens the test lab. */}
         <button className={`stat live ${city.mode === "testnet" || city.live ? "on" : ""}`} onClick={onModeChipClick}>
           {city.mode === "preview" ? (
             <>
-              <span>Sample data</span>
-              <b>{city.live ? "● Live" : "Paused"}</b>
+              <span>{PRELAUNCH ? GAME.name : "Sample data"}</span>
+              <b>{PRELAUNCH ? "Opening soon" : city.live ? "● Live" : "Paused"}</b>
             </>
           ) : (
             <>
-              <span>Test city</span>
-              <b>● On chain</b>
+              <span>{liveCity ? GAME.name : "Test city"}</span>
+              <b title={chainError() ?? undefined}>● {liveCity ? (city.chain ? "Live" : chainError() ? "Can't reach Elysium" : "Loading") : "On chain"}</b>
             </>
           )}
         </button>
@@ -153,7 +175,6 @@ function Game() {
               {tab === "feed" && <FeedTab />}
               {tab === "build" && <BuildTab />}
               {tab === "mine" && <MyPalazzoTab />}
-              {tab === "hall" && <TownHallTab />}
               {tab === "rank" && <RankingsTab />}
               {tab === "treasury" && <TreasuryTab />}
               {tab === "paper" && <WhitePaper />}
@@ -180,8 +201,8 @@ function Game() {
         </div>
       )}
 
+      {!tab && <Guide onTab={(t) => setTab(t)} />}
       <FeedPanel />
-      <NewsTicker />
 
       <nav className="tabs">
         {TABS.map((t) => (

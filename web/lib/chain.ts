@@ -3,10 +3,10 @@
 
 import { formatEther, formatUnits, parseEventLogs, type Address } from "viem";
 import { getWalletClient, switchChain } from "@wagmi/core";
-import { nftAbi, pricingAbi, testAdapterAbi, testFeeEscrowAbi, testOracleAbi, testTokenAbi, vaultAbi } from "./abis";
+import { nftAbi, pricingAbi, testAdapterAbi, testHookAbi, testOracleAbi, testTokenAbi, vaultAbi } from "./abis";
 import { CHAIN, publicClient, wagmiConfig } from "./wagmi";
-import { DISTRICTS, TOKENS, cityToken, type DistrictId, type TokenId } from "./config";
-import { announce, getCity, registerChain, setChainState, type Building, type ChainInfo, type Purchase } from "./store";
+import { DISTRICTS, LIVE, REHEARSAL, TOKENS, cityToken, levelForUsd, type DistrictId, type TokenId } from "./config";
+import { announce, getCity, registerChain, setChainState, type Building, type ChainInfo, type CityEvent, type Purchase } from "./store";
 
 const MAX = 2n ** 256n - 1n;
 const num = (v: bigint, d = 18) => Number(formatUnits(v, d));
@@ -20,18 +20,33 @@ export interface CityAddresses {
   adapter: Address;
   tokens: Address[];
   districts: number;
+  /** The income asset: address(0) for native HYPE (mainnet), a test token in the test kit. */
   income: Address;
-  feeEscrow: Address;
+  /** Montra LaunchHook holding $CAPITALE's creator-side fees (the test kit's stand-in in tests). */
+  hook: Address;
+  poolId: `0x${string}`;
 }
+
+const ZERO = "0x0000000000000000000000000000000000000000";
 
 // ─────────── where the test city lives ───────────
 
 const KEY = "capitale.testCity";
 
+/** True when the loaded city is the real, launched one. */
+export function isLiveCity(vault: string | null | undefined) {
+  if (!vault) return false;
+  const v = vault.toLowerCase();
+  return (!!LIVE.vault && v === LIVE.vault.toLowerCase()) || (!!REHEARSAL && v === REHEARSAL.vault.toLowerCase());
+}
+
 export function savedCity(): Address | null {
   try {
     const q = new URLSearchParams(window.location.search).get("city");
+    if (q === "rehearsal" && REHEARSAL) return REHEARSAL.vault;
     if (q && /^0x[0-9a-fA-F]{40}$/.test(q)) return q as Address;
+    // After launch the real city is the default (a test city needs an explicit ?city= link).
+    if (LIVE.vault) return LIVE.vault;
     const ls = window.localStorage.getItem(KEY);
     if (ls && /^0x[0-9a-fA-F]{40}$/.test(ls)) return ls as Address;
   } catch {
@@ -60,11 +75,12 @@ export async function resolveAddresses(vault: Address): Promise<CityAddresses> {
     publicClient.readContract({ ...v, functionName: "tokenCount" }),
     publicClient.readContract({ ...v, functionName: "districts" }),
   ])).map(Number);
-  const [nft, oracle, income, feeEscrow, adapter, ...tokens] = await Promise.all([
+  const [nft, oracle, income, hook, poolId, adapter, ...tokens] = await Promise.all([
     publicClient.readContract({ ...v, functionName: "nft" }),
     publicClient.readContract({ ...v, functionName: "oracle" }),
     publicClient.readContract({ ...v, functionName: "income" }),
-    publicClient.readContract({ ...v, functionName: "feeEscrow" }),
+    publicClient.readContract({ ...v, functionName: "hook" }),
+    publicClient.readContract({ ...v, functionName: "poolId" }),
     publicClient.readContract({ ...v, functionName: "adapters", args: [0n] }),
     ...Array.from({ length: n0 }, (_, i) => publicClient.readContract({ ...v, functionName: "tokens", args: [BigInt(i)] })),
   ]);
@@ -83,30 +99,32 @@ export async function resolveAddresses(vault: Address): Promise<CityAddresses> {
     tokens: tokens as Address[],
     districts: cities,
     income: income as Address,
-    feeEscrow: feeEscrow as Address,
+    hook: hook as Address,
+    poolId: poolId as `0x${string}`,
   };
 }
 
 // ─────────── reading the city ───────────
 
+const blockTimes = new Map<bigint, number>();
 const buildingCache = new Map<number, { district: DistrictId; style: 0 | 1 | 2; plot: number; inviter: number; earlyBird: boolean; builtAt: number }>();
 
 async function readCity(a: CityAddresses, me: Address | null) {
   const v = { address: a.vault, abi: vaultAbi } as const;
   const n = { address: a.nft, abi: nftAbi } as const;
   const p = { address: a.pricing, abi: pricingAbi } as const;
+  // The real oracle and the test kit's share the ICapitaleOracle reads used here.
   const o = { address: a.oracle, abi: testOracleAbi } as const;
   const c = { address: a.capitale, abi: testTokenAbi } as const;
   const rv = <T>(fn: string, args: unknown[] = []) =>
     publicClient.readContract({ ...v, functionName: fn as never, args: args as never }) as Promise<T>;
 
-  const [block, totalResidents, week, weekEnd, currentToken, totalTax, totalPurchases, totalBoughtUsd, rEth, sEth, oEth, pausedUntil, lastBuyAt, active, params, ebEnd, ebFinal, vaultIncome] =
+  const [block, totalResidents, week, weekEnd, totalTax, totalPurchases, totalBoughtUsd, rEth, sEth, oEth, pausedUntil, lastBuyAt, active, params, ebEnd, ebFinal, vaultIncome] =
     await Promise.all([
       publicClient.getBlock(),
       publicClient.readContract({ ...n, functionName: "totalResidents" }),
       rv<bigint>("week"),
       rv<bigint>("weekEnd"),
-      rv<number>("currentToken"),
       rv<bigint>("totalTax"),
       rv<bigint>("totalPurchases"),
       rv<bigint>("totalBoughtUsd"),
@@ -119,71 +137,78 @@ async function readCity(a: CityAddresses, me: Address | null) {
       rv<readonly [bigint, bigint, number, number, number]>("buyParams"),
       rv<bigint>("earlyBirdEnd"),
       rv<boolean>("earlyBirdFinalized"),
-      publicClient.readContract({ address: a.income, abi: testTokenAbi, functionName: "balanceOf", args: [a.vault] }),
+      a.income === ZERO
+        ? publicClient.getBalance({ address: a.vault })
+        : (publicClient.readContract({ address: a.income, abi: testTokenAbi, functionName: "balanceOf", args: [a.vault] }) as Promise<bigint>),
     ]);
 
   const N = Number(totalResidents);
   const nextId = N + 1;
-  const [votes, newBuilds, incomeUsd, capUsd, isEB, oracleOwner, quality, ...rest] = await Promise.all([
-    rv<readonly bigint[]>("votesOf", [week]),
+  // Everything below only depends on the first wave, so it goes out together (one round trip).
+  const wave2 = Promise.all([
     rv<readonly bigint[]>("newBuildsOf", [week]),
     publicClient.readContract({ ...o, functionName: "incomeUsd" }),
     publicClient.readContract({ ...o, functionName: "capitaleUsdSpot" }),
     publicClient.readContract({ ...p, functionName: "isEarlyBird" }),
-    publicClient.readContract({ ...o, functionName: "owner" }),
+    // Only the test oracle has an owner (the real one has none).
+    publicClient.readContract({ address: a.oracle, abi: testOracleAbi, functionName: "owner" }).catch(() => "0x0000000000000000000000000000000000000000"),
     publicClient.readContract({ address: a.adapter, abi: testAdapterAbi, functionName: "qualityBps" }).catch(() => 10_000n),
     ...a.tokens.map((t) => publicClient.readContract({ ...o, functionName: "tokenUsd", args: [t] })),
     ...a.tokens.map((t) => publicClient.readContract({ address: t, abi: testTokenAbi, functionName: "balanceOf", args: [a.vault] })),
   ]);
-  const nT = a.tokens.length;
-  const tokenUsd = rest.slice(0, nT) as bigint[];
-  const holdings = rest.slice(nT, 2 * nT) as bigint[];
-
-  let quote: ChainInfo["quote"] = null;
-  let quoteError: string | null = null;
-  try {
-    const [tok, usd] = (await publicClient.readContract({ ...p, functionName: "quote", args: [BigInt(nextId)] })) as readonly [bigint, bigint];
-    quote = { id: nextId, usd: num(usd), tokens: num(tok), tokensWei: tok };
-  } catch (e) {
-    const msg = String((e as Error).message ?? e);
-    quoteError = msg.includes("EarlyBirdSoldOut") ? "Early bird sold out: building reopens when the 6 hours end." : msg.includes("CityLocked") ? "The city is complete." : msg.includes("NotStarted") ? "Building has not started yet." : "Price unavailable right now.";
-  }
-
-  let gasBalance = 0n;
-  let capWei = 0n;
-  let allowance = 0n;
-  if (me) {
-    [gasBalance, capWei, allowance] = await Promise.all([
-      publicClient.getBalance({ address: me }),
-      publicClient.readContract({ ...c, functionName: "balanceOf", args: [me] }),
-      publicClient.readContract({ ...c, functionName: "allowance", args: [me, a.nft] }),
-    ]);
-  }
-
+  const quoteP = (publicClient.readContract({ ...p, functionName: "quote", args: [BigInt(nextId)] }) as Promise<readonly [bigint, bigint]>).then(
+    ([tok, usd]) => ({ quote: { id: nextId, usd: num(usd), tokens: num(tok), tokensWei: tok } as ChainInfo["quote"], quoteError: null as string | null }),
+    (e) => {
+      const msg = String((e as Error).message ?? e);
+      return {
+        quote: null as ChainInfo["quote"],
+        quoteError: msg.includes("EarlyBirdSoldOut") ? "Early bird sold out: building reopens when the 6 hours end." : msg.includes("CityLocked") ? "The city is complete." : msg.includes("NotStarted") ? "Building has not started yet." : "Price unavailable right now.",
+      };
+    },
+  );
+  const meP = me
+    ? Promise.all([
+        publicClient.getBalance({ address: me }),
+        publicClient.readContract({ ...c, functionName: "balanceOf", args: [me] }) as Promise<bigint>,
+        publicClient.readContract({ ...c, functionName: "allowance", args: [me, a.nft] }) as Promise<bigint>,
+      ])
+    : Promise.resolve([0n, 0n, 0n] as [bigint, bigint, bigint]);
   // Buildings: static facts once, live facts every poll.
-  const missing = [];
+  const missing: number[] = [];
   for (let id = 1; id <= N; id++) if (!buildingCache.has(id)) missing.push(id);
-  const statics = await Promise.all(missing.map((id) => publicClient.readContract({ ...n, functionName: "buildingOf", args: [BigInt(id)] })));
-  missing.forEach((id, i) => {
-    const b = statics[i] as { district: number; style: number; earlyBird: boolean; plot: number; inviter: number; builtAt: bigint };
-    buildingCache.set(id, { district: b.district as DistrictId, style: b.style as 0 | 1 | 2, plot: Number(b.plot), inviter: Number(b.inviter), earlyBird: b.earlyBird, builtAt: Number(b.builtAt) });
-  });
+  const staticsP = Promise.all(missing.map((id) => publicClient.readContract({ ...n, functionName: "buildingOf", args: [BigInt(id)] })));
   const ids = Array.from({ length: N }, (_, i) => i + 1);
-  const live = await Promise.all(
+  const liveP = Promise.all(
     ids.map((id) =>
       Promise.all([
         publicClient.readContract({ ...n, functionName: "ownerOf", args: [BigInt(id)] }),
         rv<bigint>("claimedUsd", [BigInt(id)]),
         rv<bigint>("pendingUsd", [BigInt(id)]),
         rv<readonly bigint[]>("pendingAll", [BigInt(id)]),
-        rv<bigint>("lastVotedWeek", [BigInt(id)]),
         publicClient.readContract({ ...n, functionName: "buildingOf", args: [BigInt(id)] }),
       ]),
     ),
   );
+  // Recent purchases from events (public nodes limit how far back logs can go).
+  // Elysium makes ~4 blocks a second: look back ~1 day, or ~40 min if the node refuses a wide range.
+  const buysSince = (span: bigint) =>
+    publicClient.getContractEvents({ address: a.vault, abi: vaultAbi, eventName: "Bought", fromBlock: block.number > span ? block.number - span : 0n });
+  const logsP = buysSince(330_000n)
+    .catch(() => buysSince(9000n))
+    .catch(() => null);
+
+  const [[newBuilds, incomeUsd, capUsd, isEB, oracleOwner, quality, ...rest], { quote, quoteError }, [gasBalance, capWei, allowance], statics, live, logs] =
+    await Promise.all([wave2, quoteP, meP, staticsP, liveP, logsP]);
+  const nT = a.tokens.length;
+  const tokenUsd = rest.slice(0, nT) as bigint[];
+  const holdings = rest.slice(nT, 2 * nT) as bigint[];
+  missing.forEach((id, i) => {
+    const b = statics[i] as { district: number; style: number; earlyBird: boolean; plot: number; inviter: number; builtAt: bigint };
+    buildingCache.set(id, { district: b.district as DistrictId, style: b.style as 0 | 1 | 2, plot: Number(b.plot), inviter: Number(b.inviter), earlyBird: b.earlyBird, builtAt: Number(b.builtAt) });
+  });
   const buildings: Building[] = ids.map((id, i) => {
     const st = buildingCache.get(id)!;
-    const [owner, claimed, pending, pendingAll, voted, full] = live[i] as [Address, bigint, bigint, readonly bigint[], bigint, { invites: number }];
+    const [owner, claimed, pending, pendingAll, full] = live[i] as [Address, bigint, bigint, readonly bigint[], { invites: number }];
     return {
       id,
       district: st.district,
@@ -196,24 +221,22 @@ async function readCity(a: CityAddresses, me: Address | null) {
       claimedUsd: num(claimed),
       pendingUsd: num(pending),
       pendingTokens: pendingAll.map((v) => num(v)),
-      votedWeek: Number(voted) - 1,
       builtAt: st.builtAt,
     };
   });
   const districtCount = Array.from({ length: a.districts }, () => 0);
   for (const b of buildings) districtCount[b.district]++;
 
-  // Recent purchases from events (public nodes limit how far back logs can go).
-  let purchases: Purchase[] = [];
-  try {
-    const logs = await publicClient.getContractEvents({ address: a.vault, abi: vaultAbi, eventName: "Bought", fromBlock: block.number > 9000n ? block.number - 9000n : 0n });
-    purchases = logs.reverse().slice(0, 30).map((l) => {
-      const args = l.args as { token: number; amountIn: bigint; tokensOut: bigint; usd: bigint };
-      return { at: Number(block.timestamp) - Number(block.number - (l.blockNumber ?? block.number)) * 2, token: args.token as TokenId, amount: num(args.amountIn), tokens: num(args.tokensOut), usd: num(args.usd) };
-    });
-  } catch {
-    /* logs unavailable */
-  }
+  // Real times for the recent buys (blocks are read once, then remembered).
+  const recent = (logs ?? []).reverse().slice(0, 30);
+  const need = [...new Set(recent.map((l) => l.blockNumber).filter((n): n is bigint => n !== null && !blockTimes.has(n)))];
+  const got = await Promise.all(need.map((n) => publicClient.getBlock({ blockNumber: n }).then((b) => [n, Number(b.timestamp)] as const).catch(() => null)));
+  for (const g of got) if (g) blockTimes.set(g[0], g[1]);
+  const purchases: Purchase[] = recent.map((l) => {
+    const args = l.args as { token: number; amountIn: bigint; tokensOut: bigint; usd: bigint };
+    const at = (l.blockNumber !== null && blockTimes.get(l.blockNumber)) || Number(block.timestamp);
+    return { at, token: args.token as TokenId, amount: num(args.amountIn), tokens: num(args.tokensOut), usd: num(args.usd) };
+  });
 
   const chain: ChainInfo = {
     ...a,
@@ -244,8 +267,6 @@ async function readCity(a: CityAddresses, me: Address | null) {
     districtCount,
     week: Number(week),
     weekEnd: Number(weekEnd),
-    currentToken: currentToken as TokenId,
-    votes: votes.map(Number),
     newBuilds: newBuilds.map(Number),
     totalTax: num(totalTax),
     totalPurchases: Number(totalPurchases),
@@ -277,6 +298,48 @@ export function chainError() {
   return lastError;
 }
 
+/** Turn what changed between two reads of the city into feed posts and map effects. */
+function announceChanges(before: ReturnType<typeof getCity>, next: Awaited<ReturnType<typeof readCity>>) {
+  const firstRead = !before.chain;
+  if (firstRead) {
+    // Seed the feed with the city's real recent history.
+    const events: { at: number; event: CityEvent }[] = [];
+    for (const b of next.buildings.slice(-6)) events.push({ at: b.builtAt * 1000, event: { type: "built", building: b } });
+    for (const p of next.purchases.slice(0, 4)) {
+      const onToken = next.buildings.filter((b) => cityToken(DISTRICTS[b.district]) === p.token).length;
+      events.push({ at: p.at * 1000, event: { type: "bought", token: p.token, tokens: p.tokens, usd: p.usd, buildings: onToken } });
+    }
+    events.sort((x, y) => x.at - y.at);
+    announce({ type: "history", events });
+    return;
+  }
+  // New hideouts (anyone's), invites and level-ups.
+  const old = new Map(before.buildings.map((b) => [b.id, b]));
+  for (const b of next.buildings) {
+    const o = old.get(b.id);
+    if (!o) {
+      announce({ type: "built", building: b });
+      continue;
+    }
+    if (b.invites > o.invites) announce({ type: "invited", building: b });
+    const from = levelForUsd(o.claimedUsd);
+    if (levelForUsd(b.claimedUsd) > from) announce({ type: "levelUp", building: b, from });
+  }
+  if (next.week > before.week) {
+    const top = Math.max(0, ...before.newBuilds);
+    const winners = top > 0 ? before.newBuilds.map((n, d) => (n === top ? d : -1)).filter((d) => d >= 0) : [];
+    announce({ type: "weekClosed", winners });
+  }
+  // City tax collected into the vault.
+  if (next.totalTax > before.totalTax + 1e-9) announce({ type: "taxIn", amount: next.totalTax - before.totalTax });
+  // A new on-chain buy: the score card and the map celebration, like in the preview.
+  if (next.totalPurchases > before.totalPurchases && next.purchases[0]) {
+    const p = next.purchases[0];
+    const onToken = next.buildings.filter((b) => cityToken(DISTRICTS[b.district]) === p.token).length;
+    announce({ type: "bought", token: p.token, tokens: p.tokens, usd: p.usd, buildings: onToken });
+  }
+}
+
 export async function refresh() {
   if (!addresses) return;
   const gen = generation;
@@ -286,12 +349,7 @@ export async function refresh() {
     lastError = null;
     const before = getCity();
     setChainState(next);
-    // A new on-chain buy: let the map celebrate it like in the preview.
-    if (before.chain && next.totalPurchases > before.totalPurchases && next.purchases[0]) {
-      const p = next.purchases[0];
-      const onToken = next.buildings.filter((b) => cityToken(DISTRICTS[b.district], next.currentToken) === p.token).length;
-      announce({ type: "bought", token: p.token, tokens: p.tokens, usd: p.usd, buildings: onToken });
-    }
+    announceChanges(before, next);
   } catch (e) {
     lastError = (e as Error).message?.split("\n")[0] ?? String(e);
     console.warn("Capitale: could not read the city", e);
@@ -307,11 +365,24 @@ export async function connectCity(vault: Address | null, me: Address | null) {
     addresses = null;
     return;
   }
+  const gen = generation;
   if (!addresses || addresses.vault.toLowerCase() !== vault.toLowerCase()) {
     buildingCache.clear();
-    addresses = await resolveAddresses(vault);
+    addresses = null;
+    // Keep trying until the chain answers (a network hiccup must not leave the page stuck).
+    while (gen === generation) {
+      try {
+        addresses = await resolveAddresses(vault);
+        lastError = null;
+        break;
+      } catch (e) {
+        lastError = (e as Error).message?.split("\n")[0] ?? String(e);
+        console.warn("Capitale: could not reach the city, retrying", e);
+        await new Promise((r) => setTimeout(r, 8000));
+      }
+    }
+    if (gen !== generation) return;
   }
-  const gen = generation;
   const loop = async () => {
     await refresh();
     if (gen === generation) timer = setTimeout(loop, 8000);
@@ -341,25 +412,27 @@ export async function send(tx: Parameters<Awaited<ReturnType<typeof wallet>>["wr
 }
 
 function need(): CityAddresses {
-  if (!addresses) throw new Error("No test city loaded.");
+  if (!addresses) throw new Error("The city is still loading.");
   return addresses;
 }
 
 export const testActions = {
   faucet: () => send({ address: need().capitale, abi: testTokenAbi, functionName: "faucet" } as never),
-  /** Stand-in for $CAPITALE trading on Volta: credits creator fees (test VOLTA) to the vault in the test escrow. */
+  /** Stand-in for $CAPITALE trading on Montra: books creator fees (test HYPE) for the vault in the test hook. */
   simulateTrading: (fees: bigint) =>
-    send({ address: need().feeEscrow, abi: testFeeEscrowAbi, functionName: "simulateTrading", args: [need().vault, fees] } as never),
-  /** Pulls the creator fees from the escrow into the vault (anyone can; the keeper does it hourly). */
+    send({ address: need().hook, abi: testHookAbi, functionName: "simulateTrading", args: [need().poolId, need().vault, fees] } as never),
+  /** Claims the creator fees from the hook into the vault (anyone can; the keeper does it hourly). */
   collectFees: () => send({ address: need().vault, abi: vaultAbi, functionName: "collectCreatorFees" } as never),
+  /** Claims the HYPE that reward tokens paying their holders owe the vault (it becomes city tax). */
+  claimHolderRewards: () => send({ address: need().vault, abi: vaultAbi, functionName: "claimHolderRewards" } as never),
   async requestBuy() {
     const r = await send({ address: need().vault, abi: vaultAbi, functionName: "requestBuy" } as never);
     const logs = parseEventLogs({ abi: vaultAbi, logs: r.logs });
     const names = logs.map((l) => l.eventName);
-    if (names.includes("Bought")) return "Bought! Rewards were added to every building.";
+    if (names.includes("Bought")) return "Bought! Each city's token was added to its palazzi.";
     if (names.includes("BuyRejected")) return "Rejected: the fill was more than 4% off the reference. Buying is paused for 6 hours.";
     const skip = logs.find((l) => l.eventName === "BuySkipped") as { args: { reason: number } } | undefined;
-    return ["", "Skipped: buying is paused.", "Skipped: wait 10 minutes between orders.", "Skipped: not enough VOLTA waiting yet."][skip?.args.reason ?? 0] || "Done.";
+    return ["", "Skipped: buying is paused.", "Skipped: wait 10 minutes between orders.", "Skipped: not enough HYPE waiting yet."][skip?.args.reason ?? 0] || "Done.";
   },
   settle: () => send({ address: need().vault, abi: vaultAbi, functionName: "settle" } as never),
   payOps: () => send({ address: need().vault, abi: vaultAbi, functionName: "payOps" } as never),
@@ -382,15 +455,16 @@ registerChain({
   claim: async (ids) => {
     await send({ address: need().vault, abi: vaultAbi, functionName: "claimMany", args: [ids.map(BigInt)] } as never);
   },
-  vote: async (ids, token) => {
-    await send({ address: need().vault, abi: vaultAbi, functionName: "vote", args: [ids.map(BigInt), token] } as never);
+  send: async (id, to) => {
+    const me = getCity().me as Address;
+    await send({ address: need().nft, abi: nftAbi, functionName: "safeTransferFrom", args: [me, to as Address, BigInt(id)] } as never);
   },
 });
 
 export function describeError(e: unknown): string {
   const m = String((e as { shortMessage?: string }).shortMessage ?? (e as Error).message ?? e);
   if (/User rejected|denied/i.test(m)) return "You cancelled the transaction in your wallet.";
-  if (/insufficient funds/i.test(m)) return "Not enough HYPE in your wallet for gas. Bridge a little HYPE to Elysium (volta.family/bridge).";
+  if (/insufficient funds/i.test(m)) return "Not enough HYPE in your wallet for gas. Bridge a little HYPE to Elysium (montramarkets.xyz/bridge).";
   const custom = m.match(/reverted with the following reason:\s*(.+)/) ?? m.match(/error:\s*([A-Za-z]+\(.*?\))/);
   return custom ? custom[1] : m.split("\n")[0];
 }

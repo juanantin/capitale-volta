@@ -3,7 +3,7 @@
 // When the contracts are live, this file is replaced by reads from Elysium via wagmi/viem.
 
 import { useSyncExternalStore } from "react";
-import { DISTRICTS, DistrictId, MAX_BUILDINGS, TOKENS, TokenId, cityToken, levelForUsd, usdForBuilding } from "./config";
+import { DISTRICTS, DistrictId, MAX_BUILDINGS, PRELAUNCH, TOKENS, TokenId, cityToken, levelForUsd, usdForBuilding } from "./config";
 import { nextDeadline } from "./romeTime";
 
 export const YOU = "you";
@@ -22,16 +22,15 @@ export interface Building {
   earlyBird: boolean;
   claimedUsd: number;
   pendingUsd: number;
-  /** Claimable amount of each reward token (VOLTA, SENT, VOID), in whole tokens. */
+  /** Claimable amount of each reward token (MONTRA, LiquidV, EACCAT, CHAMELEON, NUM), in whole tokens. */
   pendingTokens: number[];
-  votedWeek: number; // week number it last voted in, -1 never
   builtAt: number;
 }
 
 export interface Purchase {
   at: number;
   token: TokenId;
-  amount: number; // income spent (VOLTA)
+  amount: number; // income spent (HYPE)
   tokens: number;
   usd: number;
 }
@@ -71,7 +70,7 @@ export interface ChainActions {
   approve: () => Promise<void>;
   build: (district: DistrictId, style: 0 | 1 | 2, inviter: number, maxTokensWei: bigint) => Promise<number | null>;
   claim: (ids: number[]) => Promise<void>;
-  vote: (ids: number[], token: TokenId) => Promise<void>;
+  send: (id: number, to: string) => Promise<void>;
 }
 
 export interface CityState {
@@ -83,8 +82,6 @@ export interface CityState {
   districtCount: number[];
   week: number;
   weekEnd: number;
-  currentToken: TokenId;
-  votes: number[];
   newBuilds: number[];
   totalTax: number;
   totalPurchases: number;
@@ -108,7 +105,11 @@ export type CityEvent =
   | { type: "levelUp"; building: Building; from: number }
   | { type: "invited"; building: Building }
   | { type: "focus"; id: number }
-  | { type: "bought"; token: TokenId; tokens: number; usd: number; buildings: number };
+  | { type: "bought"; token: TokenId; tokens: number; usd: number; buildings: number }
+  | { type: "taxIn"; amount: number }
+  | { type: "weekClosed"; winners: number[] }
+  /** Live city, first load: recent real history for the feed (oldest first, with times). */
+  | { type: "history"; events: { at: number; event: CityEvent }[] };
 
 // ─────────── deterministic sample data ───────────
 
@@ -124,13 +125,46 @@ function rng(seed: number) {
 
 const NAMES = ["0x7a3…91c", "0x1fe…b20", "0xc04…7d1", "0x9bb…e03", "0x44d…a8f", "0x02c…5e7", "0xd1a…0c4"];
 
+/** Before launch: an empty city that is not open yet (no sample palazzi, buys or totals). */
+function makeClosed(): CityState {
+  const now = Math.floor(Date.now() / 1000);
+  return {
+    mode: "preview",
+    me: YOU,
+    chain: null,
+    buildings: [],
+    districtCount: DISTRICTS.map(() => 0) as CityState["districtCount"],
+    week: 0,
+    weekEnd: nextDeadline(now),
+    newBuilds: DISTRICTS.map(() => 0) as CityState["newBuilds"],
+    totalTax: 0,
+    totalPurchases: 0,
+    totalBoughtUsd: 0,
+    purchases: [],
+    residentsFunds: 0,
+    streetFunds: 0,
+    opsFunds: 0,
+    opsPaid: 0,
+    holdings: TOKENS.map(() => 0) as CityState["holdings"],
+    incomeUsd: 0,
+    capitaleUsd: 0,
+    tokenUsd: TOKENS.map(() => 0) as CityState["tokenUsd"],
+    approved: false,
+    capitaleBalance: 0,
+    live: false,
+  };
+}
+
+const NOT_OPEN = "Capitale isn't open yet: building and claiming start at launch.";
+
 function makeInitial(): CityState {
+  if (PRELAUNCH) return makeClosed();
   const r = rng(20261022);
   const now = Math.floor(Date.now() / 1000);
   const weekEnd = nextDeadline(now);
   const buildings: Building[] = [];
   const districtCount = DISTRICTS.map(() => 0);
-  const weights = [0.3, 0.32, 0.2, 0.18];
+  const weights = [0.25, 0.27, 0.17, 0.16, 0.15];
   const total = 1247;
   for (let id = 1; id <= total; id++) {
     let x = r();
@@ -158,16 +192,14 @@ function makeInitial(): CityState {
       claimedUsd: Math.round(claimed * 100) / 100,
       pendingUsd: Math.round(r() * 12 * (0.3 + age) * 100) / 100,
       pendingTokens: [],
-      votedWeek: r() < 0.35 ? 0 : -1,
       builtAt: now - Math.floor(age * 30 * 86400),
     });
   }
-  // Each city earns its own token; Napoli (the vote city) has earned all three over past weeks.
-  const sampleUsd = [0.00059, 0.00005, 0.000135];
+  // Each city earns its own token (sample prices in USD).
+  const sampleUsd = [0.004, 0.0009, 0.00027, 0.0002, 0.00016];
   for (const b of buildings) {
     const earns = DISTRICTS[b.district].earns;
-    const mix = earns === "vote" ? [0.5, 0.3, 0.2] : TOKENS.map((t) => (t.id === earns ? 1 : 0));
-    b.pendingTokens = mix.map((w, t) => (b.pendingUsd * w) / sampleUsd[t]);
+    b.pendingTokens = TOKENS.map((t) => (t.id === earns ? b.pendingUsd / sampleUsd[t.id] : 0));
   }
 
   // A few well-connected inviters (fireworks).
@@ -178,13 +210,11 @@ function makeInitial(): CityState {
     invitee.inviter = inviter.id;
     inviter.invites += 1;
   }
-  const votes = TOKENS.map(() => 0);
-  for (const b of buildings) if (b.votedWeek === 0) votes[r() < 0.45 ? 0 : r() < 0.6 ? 1 : 2]++;
   const purchases: Purchase[] = [];
   for (let k = 0; k < 12; k++) {
-    const amount = 60_000 + r() * 240_000;
-    const t = (k % 3) as TokenId;
-    purchases.push({ at: now - k * 3600 - Math.floor(r() * 1800), token: t, amount, tokens: 0, usd: amount * 0.00059 });
+    const amount = 0.2 + r() * 0.8;
+    const t = (k % 5) as TokenId;
+    purchases.push({ at: now - k * 3600 - Math.floor(r() * 1800), token: t, amount, tokens: (amount * 62) / sampleUsd[t], usd: amount * 62 });
   }
   return {
     mode: "preview",
@@ -194,21 +224,19 @@ function makeInitial(): CityState {
     districtCount,
     week: 0,
     weekEnd,
-    currentToken: 0,
-    votes,
-    newBuilds: [41, 38, 22, 29],
-    totalTax: 18_240_000,
-    totalPurchases: 212,
+    newBuilds: [41, 38, 22, 29, 25],
+    totalTax: 172.4,
+    totalPurchases: 318,
     totalBoughtUsd: 9_150,
     purchases,
-    residentsFunds: 141_200,
-    streetFunds: 30_250,
-    opsFunds: 36_100,
-    opsPaid: 2_700_000,
-    holdings: [9_120_000, 61_400_000, 18_900_000],
-    incomeUsd: 0.00059,
+    residentsFunds: 1.36,
+    streetFunds: 0.29,
+    opsFunds: 0.35,
+    opsPaid: 25.6,
+    holdings: [480_000, 2_100_000, 7_000_000, 9_400_000, 11_800_000],
+    incomeUsd: 62,
     capitaleUsd: 0.0000412,
-    tokenUsd: [0.00059, 0.00005, 0.000135],
+    tokenUsd: [...sampleUsd],
     approved: false,
     capitaleBalance: 9_000_000,
     live: true,
@@ -263,7 +291,27 @@ export function setMode(mode: Mode) {
   if (s.mode === mode) return;
   if (mode === "testnet") {
     previewState = s;
-    state = { ...s, mode, live: false, chain: null, buildings: [], districtCount: DISTRICTS.map(() => 0), purchases: [], me: "" };
+    // Start from a blank city: nothing from the sample data may show while the chain loads.
+    const zeros = <T,>(arr: readonly T[]) => arr.map(() => 0) as unknown;
+    state = {
+      ...s,
+      mode,
+      live: false,
+      chain: null,
+      buildings: [],
+      districtCount: DISTRICTS.map(() => 0) as CityState["districtCount"],
+      newBuilds: zeros(s.newBuilds) as CityState["newBuilds"],
+      holdings: zeros(s.holdings) as CityState["holdings"],
+      purchases: [],
+      totalTax: 0,
+      totalPurchases: 0,
+      totalBoughtUsd: 0,
+      residentsFunds: 0,
+      streetFunds: 0,
+      opsFunds: 0,
+      opsPaid: 0,
+      me: "",
+    };
   } else {
     state = previewState ?? makeInitial();
   }
@@ -295,12 +343,13 @@ export function quoteBuild(): { id: number; usd: number; tokens: number } {
     return q ? { id: q.id, usd: q.usd, tokens: q.tokens } : { id: s.buildings.length + 1, usd: 0, tokens: 0 };
   }
   const id = s.buildings.length + 1;
-  const usd = usdForBuilding(id, false);
-  return { id, usd, tokens: Math.ceil(usd / s.capitaleUsd) };
+  const usd = usdForBuilding(id, PRELAUNCH); // before launch: the early-bird price #1 will open at
+  return { id, usd, tokens: s.capitaleUsd > 0 ? Math.ceil(usd / s.capitaleUsd) : 0 };
 }
 
 export async function approve() {
   if (get().mode === "testnet") return chainActions?.approve();
+  if (PRELAUNCH) throw new Error(NOT_OPEN);
   set({ approved: true });
 }
 
@@ -308,6 +357,7 @@ export async function approve() {
 export async function buildMine(district: DistrictId, style: 0 | 1 | 2, inviter: number, maxTokensWei: bigint): Promise<number | null> {
   const s = get();
   if (s.mode === "testnet") return chainActions ? chainActions.build(district, style, inviter, maxTokensWei) : null;
+  if (PRELAUNCH) throw new Error(NOT_OPEN);
   return build(s.me, district, style, inviter)?.id ?? null;
 }
 
@@ -329,7 +379,6 @@ export function build(owner: string, district: DistrictId, style: 0 | 1 | 2, inv
     claimedUsd: 0,
     pendingUsd: 0,
     pendingTokens: TOKENS.map(() => 0),
-    votedWeek: -1,
     builtAt: Math.floor(Date.now() / 1000),
   };
   let inviterB: Building | undefined;
@@ -355,8 +404,18 @@ export function build(owner: string, district: DistrictId, style: 0 | 1 | 2, inv
   return b;
 }
 
+/** Give a palazzo to another wallet. Its pending rewards and height go with it. */
+export async function sendHideout(id: number, to: string) {
+  if (get().mode === "testnet") return chainActions?.send(id, to);
+  const buildings = [...get().buildings];
+  const b = buildings[id - 1];
+  if (b) buildings[id - 1] = { ...b, owner: to.toLowerCase() };
+  set({ buildings });
+}
+
 export async function claim(ids: number[]) {
   if (get().mode === "testnet") return chainActions?.claim(ids);
+  if (PRELAUNCH) throw new Error(NOT_OPEN);
   const s = get();
   const buildings = [...s.buildings];
   for (const id of ids) {
@@ -368,20 +427,6 @@ export async function claim(ids: number[]) {
     if (levelForUsd(nb.claimedUsd) > from) queueMicrotask(() => emit({ type: "levelUp", building: nb, from }));
   }
   set({ buildings });
-}
-
-export async function vote(ids: number[], token: TokenId) {
-  if (get().mode === "testnet") return chainActions?.vote(ids, token);
-  const s = get();
-  const buildings = [...s.buildings];
-  const votes = [...s.votes] as CityState["votes"];
-  for (const id of ids) {
-    const b = buildings[id - 1];
-    if (!b || b.votedWeek === s.week) continue;
-    buildings[id - 1] = { ...b, votedWeek: s.week };
-    votes[token]++;
-  }
-  set({ buildings, votes });
 }
 
 export function focus(id: number) {
@@ -397,21 +442,9 @@ export function settleIfDue(now: number) {
   const s = get();
   if (s.mode !== "preview") return;
   if (now < s.weekEnd) return;
-  let best = 0;
-  let idx = s.currentToken;
-  let tie = false;
-  s.votes.forEach((v, i) => {
-    if (v > best) {
-      best = v;
-      idx = i as TokenId;
-      tie = false;
-    } else if (v === best && v > 0) tie = true;
-  });
   set({
     week: s.week + 1,
     weekEnd: nextDeadline(now),
-    currentToken: best > 0 && !tie ? idx : s.currentToken,
-    votes: TOKENS.map(() => 0),
     newBuilds: DISTRICTS.map(() => 0),
   });
 }
@@ -419,7 +452,7 @@ export function settleIfDue(now: number) {
 /** Preview life: other residents keep building, buys happen, rewards accrue, some level up. */
 export function tick() {
   const s = get();
-  if (s.mode !== "preview" || !s.live) return;
+  if (s.mode !== "preview" || !s.live || PRELAUNCH) return;
   const r = Math.random();
   if (r < 0.45 && s.buildings.length < MAX_BUILDINGS) {
     const d = Math.floor(Math.random() * DISTRICTS.length) as DistrictId;
@@ -439,19 +472,19 @@ export function tick() {
   } else {
     // An order: the residents' share is split across cities by building count (same value for
     // every building) and each city's part buys its own token; cities on one token share a swap.
-    const amount = 60_000 + Math.random() * 240_000;
+    const amount = 0.5 + Math.random() * 2.5; // HYPE
     const usd = amount * s.incomeUsd;
     const n = s.buildings.length || 1;
     const per = usd / n; // every building gets the same value
     const tokIn = TOKENS.map(() => 0); // USD bought per token
     const tokBuildings = TOKENS.map(() => 0);
     DISTRICTS.forEach((d) => {
-      const t = cityToken(d, s.currentToken);
+      const t = cityToken(d);
       tokIn[t] += per * s.districtCount[d.id];
       tokBuildings[t] += s.districtCount[d.id];
     });
     const buildings = s.buildings.map((b) => {
-      const t = cityToken(DISTRICTS[b.district], s.currentToken);
+      const t = cityToken(DISTRICTS[b.district]);
       const pendingTokens = [...b.pendingTokens];
       pendingTokens[t] += per / s.tokenUsd[t];
       return { ...b, pendingUsd: Math.round((b.pendingUsd + per) * 100) / 100, pendingTokens };

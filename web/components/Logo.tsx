@@ -1,5 +1,6 @@
-// Capitale's mark in Volta's language: a guilloche rosette with a four-point star,
-// next to the name set in Cormorant Garamond.
+import { GAME } from "../lib/config";
+
+// The game's mark: a guilloche rosette with a four-point star, next to the name.
 
 function rosettePath(cx: number, cy: number, r: number, petals: number, inner = 0.55) {
   const steps = petals * 36;
@@ -22,31 +23,13 @@ export function Rosette({ size = 44 }: { size?: number }) {
   );
 }
 
-/** Riviera theme: a low sun over the sea instead of the guilloche rosette. */
-function Sun({ size = 40 }: { size?: number }) {
-  return (
-    <svg className="sun" width={size} height={size} viewBox="0 0 40 40" aria-hidden>
-      <defs>
-        <linearGradient id="sunfill" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0" stopColor="#ffd36e" />
-          <stop offset="1" stopColor="#ff5c8a" />
-        </linearGradient>
-      </defs>
-      <circle cx="20" cy="22" r="14" fill="url(#sunfill)" />
-      <rect x="0" y="27" width="40" height="3" fill="var(--void)" />
-      <rect x="0" y="32" width="40" height="2" fill="var(--void)" />
-      <rect x="0" y="36" width="40" height="4" fill="var(--void)" />
-    </svg>
-  );
-}
-
 export default function Logo() {
   return (
-    <div className="logo" role="img" aria-label="Capitale">
-      <Sun />
+    <div className="logo" role="img" aria-label={GAME.name}>
+      <Rosette />
       <span className="logo-word">
-        <span className="logo-name">Capitale</span>
-        <span className="logo-kicker">Riviera · on Volta</span>
+        <span className="logo-name">{GAME.name}</span>
+        <span className="logo-kicker">{GAME.tagline}</span>
       </span>
     </div>
   );

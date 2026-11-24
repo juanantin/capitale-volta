@@ -1,12 +1,13 @@
 // "Deploy test city": puts a complete Capitale on Elysium from the connected wallet, wired to
-// test tokens (tVOLTA, tSENT, tVOID, tCAPITALE) and a test fee escrow.
+// test tokens (tHYPE income, tMONTRA, tLiquidV, tEACCAT, tCHAMELEON, tNUM, tCAPITALE) and a
+// stand-in for Montra's fee hook.
 // Six wallet confirmations. Testnet only: it uses the test stand-ins from TestKit.
 
 import { parseEther, type Address } from "viem";
 import { getWalletClient, switchChain } from "@wagmi/core";
 import { nftAbi, pricingAbi, testKitAbi, vaultAbi } from "./abis";
 import { CHAIN, publicClient, wagmiConfig } from "./wagmi";
-import { DISTRICTS, FOLLOWS_VOTE } from "./config";
+import { DISTRICTS } from "./config";
 
 export const DEPLOY_STEPS = [
   "Test tokens, price feed and swap (TestKit)",
@@ -48,10 +49,11 @@ export async function deployTestCity(opts: DeployOptions, onStep: (i: number) =>
 
   onStep(0);
   const kit = await deploy(testKitAbi, testKitBytecode, []);
-  const [capitale, volta, feeEscrow, oracle, adapter, rewards] = await Promise.all([
+  const [capitale, hype, hook, poolId, oracle, adapter, rewards] = await Promise.all([
     read<Address>(kit, testKitAbi, "capitale"),
-    read<Address>(kit, testKitAbi, "volta"),
-    read<Address>(kit, testKitAbi, "feeEscrow"),
+    read<Address>(kit, testKitAbi, "hype"),
+    read<Address>(kit, testKitAbi, "hook"),
+    read<`0x${string}`>(kit, testKitAbi, "POOL_ID"),
     read<Address>(kit, testKitAbi, "oracle"),
     read<Address>(kit, testKitAbi, "adapter"),
     read<readonly Address[]>(kit, testKitAbi, "rewardTokens"),
@@ -72,20 +74,20 @@ export async function deployTestCity(opts: DeployOptions, onStep: (i: number) =>
       owner: me,
       nft,
       earlyBirdEnd: BigInt(start + 6 * 3600),
-      income: volta, // the city tax arrives in (test) VOLTA
-      feeEscrow,
+      income: hype, // the city tax arrives in (test) HYPE
+      hook,
+      poolId,
       oracle,
       ops: me,
       weth: "0x0000000000000000000000000000000000000000",
       districts: DISTRICTS.length,
-      initialToken: 0, // Napoli (the vote city) starts on VOLTA
-      // One token per city (Milano tSENT, Roma tVOLTA, Napoli follows the vote, Venezia tVOID).
-      cityTokens: DISTRICTS.map((d) => (d.earns === "vote" ? FOLLOWS_VOTE : d.earns)).concat([0, 0, 0, 0]).slice(0, 4) as [number, number, number, number],
+      // One token per city: Milano tLiquidV, Roma tMONTRA, Napoli tCHAMELEON, Venezia tEACCAT, Palermo tNUM.
+      cityTokens: DISTRICTS.map((d) => d.earns) as [number, number, number, number, number],
     },
     rewards,
     rewards.map(() => adapter),
-    // Test sizes in tVOLTA ($0.02 each in the test feed): buy from 100 up to 10,000 per order.
-    { minOrder: parseEther("100"), maxOrder: parseEther("10000"), minInterval: 600, rejectPause: 6 * 3600, maxDeviationBps: 400 },
+    // Test sizes in tHYPE ($62 each in the test feed): buy from 0.1 up to 10 per order.
+    { minOrder: parseEther("0.1"), maxOrder: parseEther("10"), minInterval: 600, rejectPause: 6 * 3600, maxDeviationBps: 400 },
   ]);
 
   onStep(4);

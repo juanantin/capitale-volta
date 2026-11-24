@@ -1,9 +1,9 @@
-// Riviera theme: the city's social feed. Every real city event (a buy, a new hideout, a level
+// The city's live feed. Every real city event (a buy, a new palazzo, a level
 // up, an invite) becomes a post, like a phone feed in the city. Purely cosmetic.
 
 import { useSyncExternalStore } from "react";
-import { DISTRICTS, TOKENS, cityToken } from "./config";
-import { getCity, onCityEvent, type CityEvent } from "./store";
+import { DISTRICTS, GAME, LIVE, PRELAUNCH, TICKER, TOKENS, cityToken } from "./config";
+import { onCityEvent, type CityEvent } from "./store";
 
 export interface Post {
   id: number;
@@ -17,7 +17,7 @@ export interface Post {
   token?: number;
 }
 
-const NEWS = "@capitale.news";
+const NEWS = GAME.news;
 let posts: Post[] = [];
 let nextId = 1;
 const listeners = new Set<() => void>();
@@ -31,33 +31,41 @@ function push(p: Omit<Post, "id" | "at">, at = Date.now()) {
 }
 
 export function postFromEvent(e: CityEvent): Omit<Post, "id" | "at"> | null {
-  const cur = getCity().currentToken;
   switch (e.type) {
     case "bought": {
-      const cities = DISTRICTS.filter((d) => cityToken(d, cur) === e.token);
+      const cities = DISTRICTS.filter((d) => cityToken(d) === e.token);
       const lead = cities[0];
       return {
         handle: lead?.handle ?? NEWS,
         city: lead?.id ?? null,
         kind: "score",
         token: e.token,
-        text: `Just pulled a ${fmt(e.tokens)} ${TOKENS[e.token].token} score. Split ${fmt(e.buildings)} ways${
-          cities.length > 1 ? ` with ${cities.slice(1).map((d) => d.crew).join(" and ")}` : ""
+        text: `The city bought ${fmt(e.tokens)} ${TOKENS[e.token].token} for ${cities.map((d) => d.city).join(" and ") || "its palazzi"}: ${
+          e.buildings === 1 ? "all for 1 palazzo" : `shared by ${fmt(e.buildings)} palazzi`
         }.`,
       };
     }
     case "built": {
       const d = DISTRICTS[e.building.district];
-      return { handle: d.handle, city: d.id, kind: "build", text: `New face in ${d.city}. Hideout #${fmt(e.building.id)} just opened its doors.` };
+      return { handle: d.handle, city: d.id, kind: "build", text: `A new palazzo in ${d.city}: #${fmt(e.building.id)} just went up.` };
     }
     case "levelUp": {
       const d = DISTRICTS[e.building.district];
-      return { handle: NEWS, city: null, kind: "level", text: `Hideout #${fmt(e.building.id)} in ${d.city} just added a floor. Rep level ${e.from + 1}.` };
+      return { handle: NEWS, city: null, kind: "level", text: `Palazzo #${fmt(e.building.id)} in ${d.city} just added a floor. Now level ${e.from + 1}.` };
     }
     case "invited": {
       const d = DISTRICTS[e.building.district];
       return { handle: d.handle, city: d.id, kind: "invite", text: `#${fmt(e.building.id)} keeps bringing friends to ${d.city}. Fireworks tonight.` };
     }
+    case "taxIn":
+      return { handle: NEWS, city: null, kind: "news", text: `The vault just collected ${e.amount.toLocaleString("en-US", { maximumFractionDigits: 3 })} HYPE of city tax from ${TICKER} trading.` };
+    case "weekClosed":
+      return {
+        handle: NEWS,
+        city: null,
+        kind: "news",
+        text: `Week closed.${e.winners.length ? ` Street race: ${e.winners.map((w) => DISTRICTS[w].city).join(" & ")} won the street pool.` : " Nobody built this week."}`,
+      };
     default:
       return null;
   }
@@ -68,14 +76,31 @@ export function startFeed() {
   if (started) return;
   started = true;
   const now = Date.now();
-  const seed: Omit<Post, "id" | "at">[] = [
-    { handle: NEWS, city: null, kind: "news", text: "Turf war update: Milano leads the week on new recruits. Roma two behind." },
-    { handle: "@maschere.venezia", city: 3, kind: "score", token: 2, text: "Just pulled a 114,210 VOID score. Split 224 ways." },
-    { handle: "@lazzari.napoli", city: 2, kind: "news", text: "Napoli runs whatever the city votes for. Get your vote in before Sunday 20:00." },
-    { handle: "@gladiatori.roma", city: 1, kind: "score", token: 0, text: "Roma keeps it simple: straight VOLTA, no swaps, no questions." },
+  // The real city only shows real events; the sample posts are for the preview.
+  const realCity = !!LIVE.vault || (typeof window !== "undefined" && !!new URLSearchParams(window.location.search).get("city"));
+  const seed: Omit<Post, "id" | "at">[] = realCity
+    ? [{ handle: NEWS, city: null, kind: "news", text: "Capitale is open. Pick a city, build a palazzo, earn its token." }]
+    : PRELAUNCH
+    ? [{ handle: NEWS, city: null, kind: "news", text: `Capitale opens soon. ${TICKER} launches on Montra: 3,000 palazzi, five cities, five tokens.` }]
+    : [
+    { handle: NEWS, city: null, kind: "news", text: "Street race: Milano leads the week on new palazzi. Roma three behind." },
+    { handle: DISTRICTS[3].handle, city: 3, kind: "score", token: 2, text: "The city bought 1,210,400 EACCAT for Venezia: shared by 224 palazzi." },
+    { handle: DISTRICTS[4].handle, city: 4, kind: "news", text: "Palermo earns NUM, and Sicily has room: the plots nearest the cathedral are still free." },
+    { handle: DISTRICTS[1].handle, city: 1, kind: "score", token: 0, text: "Roma earns MONTRA, Montra's own token, bought on every order." },
   ];
   seed.forEach((p, i) => push(p, now - (i + 1) * 7 * 60_000));
   onCityEvent((e) => {
+    if (e.type === "history") {
+      // The real city's recent history replaces the welcome post.
+      if (e.events.length) {
+        posts = [];
+        for (const h of e.events) {
+          const p = postFromEvent(h.event);
+          if (p) push(p, h.at);
+        }
+      }
+      return;
+    }
     const p = postFromEvent(e);
     if (p) push(p);
   });

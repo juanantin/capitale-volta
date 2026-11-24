@@ -18,7 +18,10 @@ const P = italy.places as unknown as Record<string, Pt>;
 export const PLACES: Record<string, Pt> = Object.fromEntries(
   Object.entries(P).map(([k, [x, y]]) => [k, [x, y * TILT] as Pt]),
 );
-export const DISTRICT_PLACES = ["milano", "roma", "napoli", "venezia"] as const;
+export const DISTRICT_PLACES = ["milano", "roma", "napoli", "venezia", "palermo"] as const;
+
+/** Map data credit, shown on the map. */
+export const MAP_ATTRIBUTION = "Map: Natural Earth";
 
 // Decoration around Italy (projected and tilted like the island).
 const tilt = ([x, y]: Pt): Pt => [x, y * TILT];

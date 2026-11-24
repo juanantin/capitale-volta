@@ -1,4 +1,4 @@
-// Light ("clear") / dark theme, like volta.family. Remembered per device; dark (Riviera night) by default.
+// Dark (Montra's look, the default) / light ("paper") theme. Remembered per device.
 
 import { useSyncExternalStore } from "react";
 
@@ -22,7 +22,7 @@ let current: Theme = typeof window === "undefined" ? "dark" : read();
 function apply(t: Theme) {
   if (typeof document === "undefined") return;
   document.documentElement.dataset.theme = t;
-  document.querySelector('meta[name="theme-color"]')?.setAttribute("content", t === "light" ? "#ffb48a" : "#0c0a1f");
+  document.querySelector('meta[name="theme-color"]')?.setAttribute("content", t === "light" ? "#f4f2ec" : "#050505");
 }
 
 if (typeof window !== "undefined") apply(current);

@@ -6,6 +6,7 @@ import {
   drawBoat,
   drawBuilding,
   drawCloud,
+  drawCathedral,
   drawColosseum,
   drawDuomo,
   drawEmptyPlot,
@@ -30,7 +31,7 @@ const RES = 3;
 const K = 1 / RES;
 import { ui, type Building } from "./store";
 
-// Volta palette: deep forest sea, forest land, mint linework.
+// Palette (lib/art.ts): near-black sea, dark land, gold linework.
 // Colours are read from the theme palette (V) when things are drawn, not at load.
 const inks = () => [0, 1, 2, 3].map(cityInk).concat([V.mint, V.ivory]);
 
@@ -258,7 +259,7 @@ export class CityScene {
 
   private drawIsland(): Container {
     const c = new Container();
-    // Engraved sea: fine horizontal lines, like the sky in Volta's frieze.
+    // Engraved sea: fine horizontal lines, like the sky on a banknote.
     const sea = new Graphics();
     for (let y = -900; y < WORLD.height + 900; y += 9) sea.moveTo(-1200, y).lineTo(WORLD.width + 1200, y);
     sea.stroke({ width: 0.8, color: V.ornate ? V.mint : V.surf, alpha: V.ornate ? V.lineAlpha : 0.12 });
@@ -287,7 +288,7 @@ export class CityScene {
     for (let x = -WORLD.height; x < WORLD.width; x += 14) hatch.moveTo(x, 0).lineTo(x + WORLD.height, WORLD.height);
     hatch.stroke({ width: 0.9, color: V.mint, alpha: V.lineAlpha * 1.15 });
     hatch.mask = landMask;
-    if (!V.ornate) hatch.visible = false; // Riviera: flat sunlit land, no engraving
+    if (!V.ornate) hatch.visible = false; // a flat, unengraved palette
     c.addChild(sea, decor, contours, cliff, land, landMask, hatch, this.drawOrnaments());
     // A guilloche rosette in each city's ink around its landmark, and a mint one for the Mayor.
     const rings: [Pt, number][] = [
@@ -297,7 +298,7 @@ export class CityScene {
     for (const [[x, y], color] of rings) {
       const g = new Graphics();
       if (!V.ornate) {
-        // Riviera: a soft plaza of light in the city's colour instead of a guilloche rosette.
+        // Flat palettes: a soft plaza of light in the city's colour instead of a guilloche rosette.
         g.circle(0, 0, 165).fill({ color, alpha: 0.1 });
         g.circle(0, 0, 120).fill({ color, alpha: 0.12 });
         g.circle(0, 0, 165).stroke({ width: 2, color, alpha: 0.5 });
@@ -364,7 +365,7 @@ export class CityScene {
   /** In open sea: a guilloche compass rose and a few rosette ornaments. */
   private drawOrnaments(): Container {
     const c = new Container();
-    if (!V.ornate) return c; // Riviera: open sunlit sea
+    if (!V.ornate) return c; // flat palettes: open sea
     for (const [x, y] of ORNAMENTS) {
       const g = new Graphics();
       rosette(g, 0, 0, 64, 20, V.mint, 0.8, 0.35);
@@ -427,6 +428,7 @@ export class CityScene {
     const [vx, vy] = PLACES.napoli;
     mk("vesuvius", drawVesuvius, [vx + 30, vy + 20], "landmark_2", 150);
     mk("campanile", drawCampanile, PLACES.venezia, "landmark_3", 90);
+    mk("cathedral", drawCathedral, PLACES.palermo, "landmark_4", 100);
     mk("mayor", drawMayor, PLACES.mayor, "mayor", 80);
     if (!this.realTexture("landmark_2")) this.emitters.push({ p: [vx + 30, vy + 20 - 78 * LANDMARK_SCALE], rate: 2.2, acc: 0, big: true });
   }

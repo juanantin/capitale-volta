@@ -2,7 +2,7 @@
 
 import { setTheme, useTheme } from "../lib/theme";
 
-/** Square light/dark switch in Volta's style: a line-drawn sun or moon plus a mono label. */
+/** Square light/dark switch: a line-drawn sun or moon plus a mono label. */
 export default function ThemeToggle() {
   const theme = useTheme();
   const next = theme === "dark" ? "light" : "dark";

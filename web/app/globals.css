@@ -1,6 +1,6 @@
-/* Capitale on Volta: Volta's engraved-banknote look. Deep forest greens, mint linework,
-   ivory type, square corners, Cormorant Garamond for display, Geist for text, Geist Mono
-   for small spaced-out labels. */
+/* Capitale. The base rules below come from the older engraved theme (kept on branch
+   theme-volta); the MONTRA THEME section further down overrides colours,
+   corners and type: Instrument Serif (display), Inter (text), JetBrains Mono (labels). */
 
 :root {
   --void: #041510;
@@ -1440,7 +1440,7 @@ body,
 }
 
 
-/* ─────────── chart labels around Italy ─────────── */
+/* ─────────── water and neighbourhood labels ─────────── */
 
 .sea-label,
 .land-label {
@@ -1592,67 +1592,60 @@ body,
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════════════
-   RIVIERA THEME (branch theme-riviera): modern Italian coast, golden hour by default,
-   neon night as the dark theme. Social-feed city, bold condensed type, rounded "phone"
-   cards. Original look: no third-party game logos, fonts or characters.
+   MONTRA THEME (main): Capitale follows Montra's look. Near-black layers, off-white text,
+   a metallic gold accent, sharp 2px corners, an editorial serif for headings, Inter for
+   text and JetBrains Mono for labels. Dark by default; a paper-white variant as light.
    ═══════════════════════════════════════════════════════════════════════════════════ */
 :root {
-  --void: #0c0a1f;
-  --plate: #17112f;
-  --forest: #1d1438;
-  --panel: #241a44;
-  --emerald: #6b3a7a;
-  --mint: #ff6fae;
-  --ivory: #fff0f6;
-  --muted: #c79ac0;
-  --border: #3a2a5e;
-  --up: #5cffc8;
-  --down: #ff5c7a;
-  --glow: 255 111 174;
-  --sunset: linear-gradient(120deg, #ffcf6e 0%, #ff8a5c 45%, #ff4f8b 100%);
-  --sea: #27b4c3;
-  --panel-from: #1d1438f0;
-  --panel-to: #120c28eb;
-  --panel-shadow: 0 18px 40px -18px #000000cc, inset 0 1px 0 #ffffff12;
-  --display: "Anton", "Impact", "Arial Narrow", sans-serif;
-  --sans: "Manrope", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
-  --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
-  --radius: 16px;
-  --ticker-h: 34px;
+  --void: #050505;
+  --plate: #0a0a0a;
+  --forest: #101010;
+  --panel: #161616;
+  --emerald: #2c2c2c;
+  --mint: #e9b64a;
+  --ivory: #f2f2f2;
+  --muted: #a3a3a3;
+  --border: #1f1f1f;
+  --line-2: #2c2c2c;
+  --up: #5cd6a0;
+  --down: #ff5470;
+  --warn: #e9b64a;
+  --glow: 233 182 74;
+  --gold-metal: linear-gradient(180deg, #ffdc8a 0%, #efbe4c 55%, #d6a12a 100%);
+  --gold-ink: #110c02;
+  --sheen: linear-gradient(135deg, #ffffff0f 0%, #ffffff03 45%, #ffffff0a 100%);
+  --panel-from: #101010f2;
+  --panel-to: #0a0a0aee;
+  --panel-shadow: 0 18px 40px -20px #000000cc, inset 0 1px 0 #ffffff0d;
+  --display: "Instrument Serif", "Iowan Old Style", Georgia, serif;
+  --sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --radius: 2px;
+  --ticker-h: 0px;
 }
 
 :root[data-theme="light"] {
-  --void: #fff3ea;
-  --plate: #ffe6d8;
-  --forest: #fff0e4;
+  --void: #f4f2ec;
+  --plate: #ebe8e0;
+  --forest: #faf8f3;
   --panel: #ffffff;
-  --emerald: #f3c2a8;
-  --mint: #e0457b;
-  --ivory: #2a0f22;
-  --muted: #8a5a6e;
-  --border: #f4cdbd;
-  --up: #0f9c8a;
-  --down: #d93a5e;
-  --glow: 224 69 123;
+  --emerald: #d8d3c6;
+  --mint: #9a6f12;
+  --ivory: #0a0a0a;
+  --muted: #5f5f5f;
+  --border: #dcd7cb;
+  --line-2: #cfc9bb;
+  --up: #1d8a5a;
+  --down: #c2334f;
+  --glow: 154 111 18;
+  --gold-metal: linear-gradient(180deg, #e7c46e 0%, #c9962f 55%, #a87b1c 100%);
+  --sheen: linear-gradient(135deg, #ffffff80 0%, #ffffff20 45%, #ffffff60 100%);
   --panel-from: #fffffff2;
-  --panel-to: #fff5eeeb;
-  --panel-shadow: 0 14px 34px -16px #9b3d5a66, inset 0 1px 0 #ffffff;
+  --panel-to: #f8f6f0ee;
+  --panel-shadow: 0 14px 34px -18px #00000033, inset 0 1px 0 #ffffff;
 }
 
-/* Golden-hour haze over the top of the map (night: violet haze). */
-.map::after {
-  content: "";
-  position: absolute;
-  inset: 0 0 auto 0;
-  height: 42%;
-  pointer-events: none;
-  background: linear-gradient(180deg, #ff8a7a59 0%, #ffb27a33 35%, #ffd59a14 65%, transparent 100%);
-}
-:root:not([data-theme="light"]) .map::after {
-  background: linear-gradient(180deg, #7b2ff74d 0%, #ff4f8b1f 40%, transparent 100%);
-}
-
-/* Rounded phone-app cards instead of Volta's square plates. */
+/* Sharp cards with a faint sheen, like Montra's tiles. */
 .surface,
 .token-card,
 .stat,
@@ -1664,19 +1657,26 @@ body,
 .lab-panel,
 .district-btn,
 .style-btn,
-.ca {
+.ca,
+.post,
+.guide {
   border-radius: var(--radius);
+}
+.token-card,
+.stat,
+.building-card,
+.banner,
+.post,
+.guide {
+  background-image: var(--sheen), linear-gradient(180deg, var(--panel-from), var(--panel-to));
 }
 .btn.small,
 .tag,
 .this-week {
-  border-radius: 999px;
-}
-.sheet {
-  border-radius: 22px 22px 0 0;
+  border-radius: var(--radius);
 }
 
-/* Type: bold condensed display, uppercase. */
+/* Type: editorial serif for display, normal case. */
 .logo-name,
 .banner-token,
 .stat b,
@@ -1687,98 +1687,96 @@ h2,
 h3 {
   font-family: var(--display);
   font-weight: 400;
-  letter-spacing: 0.02em;
+  letter-spacing: 0.01em;
 }
-.sheet-head h2,
-.token-name {
-  text-transform: uppercase;
-}
-
 .logo-name {
   font-size: 34px;
-  text-transform: uppercase;
-  font-style: italic;
   color: var(--ivory);
-  text-shadow: 3px 3px 0 #ff4f8b, 6px 6px 0 #ffcf6e55;
 }
-:root:not([data-theme="light"]) .logo-name {
-  color: #fff;
-  text-shadow: 0 0 8px #ff4f8b, 0 0 22px #ff4f8b99, 3px 3px 0 #7b2ff7;
+.logo-kicker,
+.via b {
+  color: var(--mint);
 }
-.logo-kicker {
+.rosette {
   color: var(--mint);
 }
 
-/* City banners: crew line and a sunset tag for the turf leader. */
+/* Buttons: metallic gold for the main action, hairline ghost for the rest. */
+.btn.primary,
+:root[data-theme="light"] .btn.primary {
+  background: var(--gold-metal);
+  color: var(--gold-ink);
+  border: 1px solid #00000033;
+  font-weight: 600;
+}
+.btn.primary:hover:not(:disabled) {
+  filter: brightness(1.06);
+}
+.btn.wallet {
+  background: var(--gold-metal);
+  color: var(--gold-ink);
+  border: 0;
+}
+.btn.wallet.on {
+  background: var(--panel);
+  color: var(--ivory);
+  border: 1px solid var(--line-2);
+}
+
+/* City banners: the city's ink as a top rule, the token chip below. */
 .banner {
   padding: 7px 16px 8px;
-  border-width: 2px;
-  border-color: var(--c);
+  border: 1px solid var(--line-2);
+  border-top: 2px solid var(--c);
 }
 .banner-token {
   font-size: 24px;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.04em;
   color: var(--ivory);
-}
-.banner-crew {
-  font-family: var(--sans);
-  font-weight: 800;
-  font-size: 10px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--c);
-  margin-top: 1px;
 }
 .this-week,
 :root[data-theme="light"] .this-week {
-  background: var(--sunset);
-  color: #2a0f22;
+  background: var(--gold-metal);
+  color: var(--gold-ink);
   border: 0;
-  font-weight: 700;
-  padding: 3px 8px;
+  font-family: var(--mono);
+  font-weight: 600;
+  padding: 2px 7px;
 }
 .banner-tokens i,
 .banner-tokens em {
-  border-radius: 999px;
+  border-radius: var(--radius);
 }
 
-/* The score: a tilted sunset card that slams in. */
+/* A purchase: a clean card in the token's ink that rises and fades. */
 .buy-toast,
 :root[data-theme="light"] .buy-toast {
-  background: var(--sunset);
-  border: 0;
-  border-radius: 10px;
-  color: #2a0f22;
-  padding: 10px 26px 12px;
-  box-shadow: 7px 7px 0 #2a0f22, 0 18px 50px -10px #ff4f8b99;
-  bottom: calc(var(--tabs-h) + var(--ticker-h) + env(safe-area-inset-bottom) + 22px);
-  animation: slam 3.6s cubic-bezier(0.2, 0.9, 0.25, 1.2) forwards;
+  background-image: var(--sheen), linear-gradient(180deg, var(--panel-from), var(--panel-to));
+  border: 1px solid var(--line-2);
+  border-top: 2px solid var(--c);
+  border-radius: var(--radius);
+  color: var(--ivory);
+  padding: 10px 24px 12px;
+  box-shadow: 0 24px 60px -24px #000000cc, 0 0 40px -18px var(--c);
+  bottom: calc(var(--tabs-h) + env(safe-area-inset-bottom) + 22px);
 }
 .buy-toast b {
   font-family: var(--display);
   font-weight: 400;
-  font-size: 40px;
-  line-height: 1;
-  color: #fff;
-  text-shadow: 3px 3px 0 #2a0f22;
+  font-size: 34px;
+  line-height: 1.05;
+  color: var(--c);
 }
 .buy-toast .kicker {
-  color: #2a0f22;
-  font-weight: 700;
-  letter-spacing: 0.3em;
-}
-@keyframes slam {
-  0% { opacity: 0; transform: translateX(-50%) rotate(-12deg) scale(1.6); }
-  10% { opacity: 1; transform: translateX(-50%) rotate(-3deg) scale(1); }
-  85% { opacity: 1; transform: translateX(-50%) rotate(-3deg) scale(1); }
-  100% { opacity: 0; transform: translateX(-50%) rotate(-3deg) translateY(20px) scale(0.96); }
+  color: var(--muted);
+  letter-spacing: 0.2em;
 }
 
-/* Live feed (wide screens): a phone-style card on the left. */
+/* Live feed (wide screens), on the left above the tab bar. */
 .feed-panel {
   position: absolute;
   left: 16px;
-  bottom: calc(var(--tabs-h) + var(--ticker-h) + 22px);
+  bottom: calc(var(--tabs-h) + 30px);
   width: 300px;
   display: flex;
   flex-direction: column;
@@ -1789,36 +1787,33 @@ h3 {
 .feed-title {
   font-family: var(--mono);
   font-size: 11px;
-  font-weight: 700;
+  font-weight: 500;
   letter-spacing: 0.2em;
-  color: var(--ivory);
+  color: var(--muted);
   display: flex;
   align-items: center;
   gap: 8px;
-  text-shadow: 0 1px 0 var(--void);
 }
 .live-dot {
-  width: 8px;
-  height: 8px;
+  width: 7px;
+  height: 7px;
   border-radius: 50%;
-  background: #ff3b5c;
-  box-shadow: 0 0 0 3px #ff3b5c44;
-  animation: pulse 1.4s infinite;
+  background: var(--mint);
+  box-shadow: 0 0 0 3px rgb(var(--glow) / 0.25);
+  animation: pulse 1.6s infinite;
 }
 @keyframes pulse {
-  50% { box-shadow: 0 0 0 7px #ff3b5c00; }
+  50% { box-shadow: 0 0 0 7px rgb(var(--glow) / 0); }
 }
 .post {
   display: flex;
   gap: 10px;
   padding: 10px 12px;
-  border-radius: 14px;
-  background: linear-gradient(180deg, var(--panel-from), var(--panel-to));
   box-shadow: var(--panel-shadow);
   border: 1px solid var(--border);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
-  animation: post-in 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
+  animation: post-in 0.4s cubic-bezier(0.2, 0.7, 0.2, 1);
 }
 @keyframes post-in {
   from {
@@ -1827,20 +1822,21 @@ h3 {
   }
 }
 .post.score {
-  border-left: 3px solid var(--t);
+  border-left: 2px solid var(--t);
 }
 .avatar {
   flex: none;
-  width: 32px;
-  height: 32px;
+  width: 30px;
+  height: 30px;
   border-radius: 50%;
   display: grid;
   place-items: center;
-  font-family: var(--display);
-  font-size: 13px;
-  color: #fff;
-  background: var(--c);
-  box-shadow: 0 0 0 2px var(--void), 0 0 0 3.5px var(--c);
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--c);
+  background: var(--forest);
+  border: 1px solid var(--c);
 }
 .post-body {
   min-width: 0;
@@ -1852,7 +1848,7 @@ h3 {
   font-size: 12px;
 }
 .post-head b {
-  font-weight: 800;
+  font-weight: 600;
   color: var(--ivory);
 }
 .post-head span {
@@ -1862,7 +1858,7 @@ h3 {
 .post p {
   margin: 2px 0 0;
   font-size: 12.5px;
-  line-height: 1.4;
+  line-height: 1.45;
   color: var(--ivory);
 }
 .post-tag {
@@ -1870,12 +1866,11 @@ h3 {
   margin-top: 5px;
   font-family: var(--mono);
   font-size: 9.5px;
-  font-weight: 700;
+  font-weight: 600;
   letter-spacing: 0.12em;
-  padding: 2px 7px;
-  border-radius: 999px;
-  background: var(--t);
-  color: #fff;
+  padding: 1px 6px;
+  border: 1px solid var(--t);
+  color: var(--t);
 }
 .feed-list {
   display: flex;
@@ -1891,113 +1886,256 @@ h3 {
   }
 }
 
-/* Breaking-news ticker above the tab bar. */
-.ticker {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: calc(var(--tabs-h) + env(safe-area-inset-bottom));
-  height: var(--ticker-h);
-  display: flex;
-  align-items: center;
-  overflow: hidden;
-  background: #2a0f22;
-  color: #fff;
-  z-index: 4;
-  font-size: 12px;
-  font-weight: 600;
+/* Panels: nearly opaque Montra black (paper in light), so the map never shows through. */
+.sheet,
+.lab-panel {
+  background: linear-gradient(180deg, #101010fa, #0a0a0afc);
+  border-color: var(--line-2);
 }
-.ticker-label {
-  flex: none;
-  height: 100%;
-  display: grid;
-  place-items: center;
-  padding: 0 12px;
-  font-family: var(--display);
-  font-size: 15px;
-  letter-spacing: 0.08em;
-  background: var(--sunset);
-  color: #2a0f22;
+:root[data-theme="light"] .sheet,
+:root[data-theme="light"] .lab-panel {
+  background: linear-gradient(180deg, #fbfaf6fa, #f4f2ecfc);
 }
-.ticker.hot {
-  background: #5a0a1c;
-}
-.ticker.hot .ticker-label {
-  background: #ff3b5c;
-  color: #fff;
-  animation: siren 0.9s steps(2) infinite;
-}
-@keyframes siren {
-  50% { background: #3f8cff; }
-}
-.ticker-track {
-  flex: 1;
-  overflow: hidden;
-  white-space: pre;
-}
-.ticker-track span {
-  display: inline-block;
-  padding-left: 16px;
-  animation: crawl 60s linear infinite;
-}
-@keyframes crawl {
-  to { transform: translateX(-50%); }
+.sheet-head h2::after {
+  background: linear-gradient(90deg, var(--mint), transparent);
 }
 
-/* The tab bar as a phone dock: round app icons. */
+/* Reading text stays in Inter; mono uppercase is for short labels only. */
+.tab p.muted.small,
+.tab li.muted,
+.paper p,
+.paper li {
+  font-family: var(--sans);
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+/* Tab bar: Montra's flat nav, mono labels, a gold rule under the active tab. */
+.ti {
+  display: none;
+}
 .tabs {
-  border-radius: 0;
+  background: var(--plate);
+  border-color: var(--border);
 }
 .tabs button {
-  gap: 4px;
+  font-family: var(--mono);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--muted);
 }
-.ti {
-  display: grid;
-  place-items: center;
-  width: 30px;
-  height: 30px;
-  border-radius: 9px;
-  font-family: var(--display);
-  font-size: 13px;
-  letter-spacing: 0.02em;
-  color: #fff;
-  background: var(--sunset);
-  box-shadow: 0 4px 10px -4px #ff4f8b99;
-}
-.tabs button:nth-child(2) .ti { background: linear-gradient(135deg, #3ff5ff, #27b4c3); }
-.tabs button:nth-child(3) .ti { background: linear-gradient(135deg, #ffd166, #ff8a3d); }
-.tabs button:nth-child(4) .ti { background: linear-gradient(135deg, #b98cff, #7b2ff7); }
-.tabs button:nth-child(5) .ti { background: linear-gradient(135deg, #ff8a3d, #ff3b5c); }
-.tabs button:nth-child(6) .ti { background: linear-gradient(135deg, #5cffc8, #0f9c8a); }
-.tabs button:nth-child(7) .ti { background: linear-gradient(135deg, #8a9bb0, #4a5a70); }
-.tabs button:nth-child(8) .ti { background: linear-gradient(135deg, #ffcf6e, #e0a030); }
-.tabs button.on .ti {
-  transform: translateY(-2px);
-  box-shadow: 0 0 0 2px var(--void), 0 0 0 4px var(--mint);
-}
-.tl {
-  font-weight: 700;
-  letter-spacing: 0.04em;
-}
-:root {
-  --tabs-h: 64px;
-}
-@media (min-width: 900px) {
-  .ticker {
-    bottom: 0;
-  }
-  .tabs {
-    bottom: calc(var(--ticker-h) + 10px);
-    border-radius: 20px;
-    width: min(1040px, calc(100vw - 32px));
-    justify-content: space-between;
-  }
+.tabs button.on {
+  color: var(--ivory);
+  box-shadow: inset 0 -2px 0 var(--mint);
 }
 
 /* The map canvas can leave a thin gap at the top edge: paint it the sea colour. */
 .map {
-  background: #0f1838;
+  background: #050505;
 }
 :root[data-theme="light"] .map {
-  background: #27b4c3;
+  background: #f4f2ec;
 }
+
+/* Map data credit (OpenStreetMap / Overture, ODbL). */
+.map-credit {
+  position: absolute;
+  right: 10px;
+  bottom: 118px;
+  z-index: 3;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 9px;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+  opacity: 0.7;
+  pointer-events: none;
+}
+@media (max-width: 899px) {
+  .map-credit { bottom: 112px; right: 8px; font-size: 8px; }
+}
+
+/* ─────────── launch page (/launch, not linked from the game) ─────────── */
+.launch {
+  /* The game locks page scrolling (full-screen map); the launch page scrolls on its own. */
+  position: fixed;
+  inset: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 24px max(16px, calc((100vw - 760px) / 2)) 80px;
+  color: var(--ivory);
+  font-family: var(--sans);
+}
+.launch-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.launch-head h1 {
+  font-family: var(--display);
+  font-weight: 400;
+  font-size: 34px;
+  margin: 0;
+}
+.launch-card {
+  background: linear-gradient(180deg, var(--panel-from), var(--panel-to));
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+  margin-bottom: 14px;
+}
+.launch-card h2 {
+  font-size: 22px;
+  margin: 0 0 10px;
+}
+.launch-card label {
+  display: block;
+  margin: 12px 0 6px;
+  font-size: 13px;
+  color: var(--muted);
+}
+.launch-card label .input {
+  margin-top: 6px;
+  width: 100%;
+}
+.launch-card .row label {
+  flex: 1;
+}
+.launch-steps {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.launch-steps li {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+  opacity: 0.55;
+}
+.launch-steps li.next,
+.launch-steps li.done {
+  opacity: 1;
+}
+.launch-steps li.done b {
+  color: var(--up);
+}
+.launch-steps p {
+  margin: 4px 0 0;
+}
+.btn.danger {
+  background: var(--down);
+  color: #fff;
+}
+.launch .mono,
+.launch .code {
+  font-family: var(--mono);
+  font-size: 12px;
+  word-break: break-all;
+}
+.launch .code {
+  white-space: pre-wrap;
+  background: var(--void);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px;
+}
+.launch a {
+  color: var(--mint);
+}
+.launch .small,
+.launch .muted {
+  font-family: var(--sans);
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 13px;
+}
+
+/* "Your next move" guide: one suggestion at a time (right side on desktop, above the tabs on phones). */
+.guide {
+  position: absolute;
+  right: 16px;
+  bottom: calc(var(--tabs-h) + var(--ticker-h) + 22px);
+  width: 320px;
+  z-index: 4;
+  padding: 14px 16px;
+  border-radius: var(--radius);
+  border: 1px solid rgb(var(--glow) / 0.55);
+  background: linear-gradient(180deg, var(--panel-from), var(--panel-to));
+  box-shadow: var(--panel-shadow), 0 0 28px -8px rgb(var(--glow) / 0.6);
+  color: var(--ivory);
+  animation: guide-in 0.4s ease-out;
+}
+.guide .close {
+  position: absolute;
+  top: 6px;
+  right: 8px;
+}
+.guide-title {
+  font-family: var(--display);
+  font-size: 20px;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  color: var(--mint);
+  padding-right: 22px;
+}
+.guide p {
+  margin: 6px 0 10px;
+  font-size: 13.5px;
+  line-height: 1.45;
+}
+.guide a.btn {
+  display: inline-block;
+  text-decoration: none;
+}
+@keyframes guide-in {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: none; }
+}
+@media (max-width: 899px) {
+  .guide {
+    left: 10px;
+    right: 10px;
+    width: auto;
+    bottom: calc(var(--tabs-h) + var(--ticker-h) + env(safe-area-inset-bottom) + 10px);
+    padding: 12px 14px;
+  }
+  .guide-title { font-size: 17px; }
+  .guide p { font-size: 13px; margin: 4px 0 8px; }
+}
+
+/* Token balance next to the connected wallet. */
+.wallet-bal {
+  margin-left: 8px;
+  padding-left: 8px;
+  border-left: 1px solid currentColor;
+  opacity: 0.9;
+}
+
+/* Event cards (new hideout, vote, score) show above any open panel; they fade out by themselves. */
+.buy-toast {
+  z-index: 30;
+  pointer-events: none;
+}
+.buy-toast {
+  animation-duration: 5s;
+}
+
+/* Send a hideout to another wallet (Hideout tab). */
+.send-box { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--line, #ffffff22); }
+.send-box .input { width: 100%; font-family: "JetBrains Mono", monospace; font-size: 13px; }
+.send-box p { margin: 0; }
+
+/* "Open in your wallet" links (phones without a wallet). */
+.preview-notice a.btn { display: block; text-align: center; text-decoration: none; margin-top: 8px; }
+
+/* CA chip + X link side by side in the token card. */
+.ca-row { display: flex; align-items: center; gap: 6px; margin: 6px 0 4px; }
+.ca-row .ca { margin: 0; }
+.x-link { display: inline-grid; place-items: center; align-self: stretch; padding: 0 8px; color: var(--muted); border: 1px dashed var(--border); border-radius: var(--radius); transition: color 0.15s, border-color 0.15s; }
+.x-link:hover { color: var(--mint); border-color: var(--mint); }

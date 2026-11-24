@@ -1,48 +1,48 @@
-// Engraved, banknote-style art drawn with PixiJS Graphics, in Volta's palette: deep forest
-// greens with mint linework, hatching on shaded faces and glowing windows. Each city keeps
+// Engraved, banknote-style art drawn with PixiJS Graphics, in Montra's palette: gold linework
+// on near-black, hatching on shaded faces and glowing windows. Each city keeps
 // its own ink colour on roofs and tops. Height floors are procedural so levels have no cap.
 
 import { Graphics } from "pixi.js";
 import { DISTRICTS } from "./config";
 import type { Theme } from "./theme";
 
-/** Riviera palette by role. Light = golden hour: teal sea, warm sand, cream palazzi with
- *  plum outlines. Dark = Riviera night: navy sea, violet land, neon-pink linework.
- *  (Role names come from the Volta theme: `mint` is the linework, `void` the sea.) */
+/** Montra palette by role: an engraving in gold on near-black (dark, the default) or in dark
+ *  gold ink on paper (light). Role names come from the first engraved theme: `mint` is the
+ *  linework, `void` the sea, `forest` the land. */
 const PALETTES = {
   dark: {
-    void: 0x0f1838, // sea
-    plate: 0x2a1640, // shaded faces
-    forest: 0x261a3c, // land
-    panel: 0x3a2350, // lit faces
-    panel2: 0x45295c,
-    emerald: 0x6b3a7a,
-    mint: 0xff6fae, // linework
-    ivory: 0xfff0f6,
-    muted: 0xc79ac0,
-    cliff: 0x120a22,
+    void: 0x050505, // sea
+    plate: 0x0d0d0d, // shaded faces
+    forest: 0x121212, // land
+    panel: 0x1a1a1a, // lit faces
+    panel2: 0x202020, // lit stone (landmarks)
+    emerald: 0x3a3226,
+    mint: 0xd8b25a, // linework: Montra's gold, a touch muted
+    ivory: 0xf2f2f2,
+    muted: 0xa3a3a3,
+    cliff: 0x000000,
     shadow: 0x000000,
-    shadowAlpha: 0.35,
-    lineAlpha: 0.07,
-    surf: 0x3ff5ff, // shoreline glow
-    ornate: false,
+    shadowAlpha: 0.4,
+    lineAlpha: 0.06, // sea and land engraving
+    surf: 0xe9b64a, // shoreline
+    ornate: true, // graticule, guilloche ribbons, rosettes, compass
   },
   light: {
-    void: 0x27b4c3,
-    plate: 0xefc0ae,
-    forest: 0xf8dfbd,
-    panel: 0xfff6ea,
-    panel2: 0xfde9d6,
-    emerald: 0xd29a78,
-    mint: 0x5b2340,
-    ivory: 0x2a0f22,
-    muted: 0x8a5a6e,
-    cliff: 0xd9a27c,
-    shadow: 0x5b2340,
-    shadowAlpha: 0.14,
-    lineAlpha: 0.12,
-    surf: 0xffffff,
-    ornate: false,
+    void: 0xece8de,
+    plate: 0xdcd6c8,
+    forest: 0xf8f6f0,
+    panel: 0xffffff,
+    panel2: 0xf3efe6,
+    emerald: 0xc9bfa8,
+    mint: 0x7a5a14,
+    ivory: 0x0a0a0a,
+    muted: 0x5f5f5f,
+    cliff: 0xcfc7b5,
+    shadow: 0x000000,
+    shadowAlpha: 0.12,
+    lineAlpha: 0.1,
+    surf: 0x9a6f12,
+    ornate: true,
   },
 };
 
@@ -293,6 +293,38 @@ export function drawColosseum(g: Graphics) {
   g.ellipse(0, -h + 1, rx - 4.5, ry - 3).stroke(FINE);
 }
 
+/** Palermo: the Norman-Arab cathedral, its red domes, a corner tower and two palms. */
+export function drawCathedral(g: Graphics) {
+  const p: Palette = { ...districtPalette(4), lit: V.panel2, shade: V.plate, top: V.panel };
+  const ink = cityInk(4);
+  const a = 30;
+  shadow(g, a);
+  box(g, a, 0, 18, p, false);
+  topDiamond(g, a, -18, p.top);
+  // three red domes along the roof
+  for (const [x, y] of [[-12, -12], [0, -18], [12, -12]] as const) {
+    g.ellipse(x, y - 4, 6, 6).fill(mix(0xc8462e, ink, 0.25)).stroke(OUTLINE);
+    g.ellipse(x, y - 4, 2.6, 6).stroke(FINE);
+  }
+  // corner tower with a small cupola
+  box(g, 7, -a / 2 + 3, 30, p, true);
+  topDiamond(g, 7, -a / 2 - 27, p.top);
+  g.ellipse(0, -a / 2 - 30, 4.2, 4.2).fill(p.roof).stroke(OUTLINE);
+  g.moveTo(0, -a / 2 - 34).lineTo(0, -a / 2 - 40).stroke({ width: 1, color: V.mint });
+  // arched doorway, engraved
+  g.roundRect(-a / 2 - 2.5, -6 + a / 4 - 6, 5, 8, 2.5).fill(V.void).stroke({ width: 0.7, color: V.mint });
+  // two palms
+  const palm = (x: number, y: number, h: number) => {
+    g.moveTo(x, y).quadraticCurveTo(x + 2, y - h / 2, x + 1, y - h).stroke({ width: 1.4, color: V.mint });
+    for (const ang of [-2.6, -2, -1.2, -0.5, 0.2]) {
+      g.moveTo(x + 1, y - h).quadraticCurveTo(x + 1 + Math.cos(ang) * 6, y - h + Math.sin(ang) * 4 - 2, x + 1 + Math.cos(ang) * 10, y - h + 4 + Math.sin(ang) * 2);
+    }
+    g.stroke({ width: 1, color: mix(0x5fc48a, V.mint, 0.3) });
+  };
+  palm(-a - 6, 4, 26);
+  palm(a + 5, 6, 22);
+}
+
 export function drawVesuvius(g: Graphics) {
   const ink = cityInk(2);
   g.ellipse(6, 4, 82, 26).fill({ color: V.shadow, alpha: V.shadowAlpha });
@@ -418,7 +450,7 @@ export function drawCottage(g: Graphics, variant: number) {
 }
 
 /**
- * Guilloche rosette (a hypotrochoid-style ring of loops), the motif of Volta's mark.
+ * Guilloche rosette (a hypotrochoid-style ring of loops), the motif of Capitale's mark.
  * `petals` loops around a circle of radius `r`; drawn flat (callers squash for the map tilt).
  */
 export function rosette(g: Graphics, cx: number, cy: number, r: number, petals: number, color: number, width = 0.7, alpha = 1) {

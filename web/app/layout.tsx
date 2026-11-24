@@ -1,16 +1,18 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
+import { GAME } from "../lib/config";
 
 export const metadata: Metadata = {
-  title: "Capitale",
-  description: "Run a crew on the Italian Riviera. Build a hideout, pull scores, take the turf. A city-building game on Elysium, launched on Volta.",
+  title: GAME.name,
+  description: "Build a palazzo in Milano, Roma, Napoli, Venezia or Palermo and earn Montra's top tokens: MONTRA, LiquidV, EACCAT, CHAMELEON and NUM. A city-building game on Elysium, launched on Montra.",
+  twitter: { card: "summary", ...(GAME.xHandle ? { site: GAME.xHandle } : {}) },
 };
 
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,
-  themeColor: "#0c0a1f",
+  themeColor: "#050505",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -26,7 +28,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
-        <link href="https://fonts.googleapis.com/css2?family=Anton&family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
+        <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
       </head>
       <body>{children}</body>
     </html>

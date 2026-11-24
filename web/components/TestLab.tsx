@@ -2,30 +2,31 @@
 
 import { useState } from "react";
 import { parseEther, type Address } from "viem";
-import { useAccount, useChainId, useConnect, useSwitchChain } from "wagmi";
+import { useAccount, useChainId, useSwitchChain } from "wagmi";
+import { useConnectWallet } from "./WalletSheet";
 import { chainError, connectCity, describeError, rememberCity, savedCity, testActions } from "../lib/chain";
 import { DEPLOY_STEPS, deployTestCity } from "../lib/deploy";
 import { CHAIN, EXPLORER } from "../lib/wagmi";
-import { TOKENS } from "../lib/config";
+import { GAME, TICKER, TOKENS } from "../lib/config";
 import { formatCountdown } from "../lib/romeTime";
 import { setMode, useCity } from "../lib/store";
 import { short } from "./WalletButton";
 import { useNow } from "./Panels";
 
-const GAS_LINKS = [["Bridge HYPE to Elysium", "https://volta.family/bridge"]];
+const GAS_LINKS = [["Bridge HYPE to Elysium", "https://montramarkets.xyz/bridge"]];
 
 export default function TestLab() {
   const city = useCity();
   const now = useNow();
   const { address, isConnected } = useAccount();
   const chainId = useChainId();
-  const { connect, connectors } = useConnect();
+  const { connectWallet } = useConnectWallet();
   const { switchChain } = useSwitchChain();
   const [busy, setBusy] = useState<string | null>(null);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [step, setStep] = useState(-1);
   const [eb, setEb] = useState(600);
-  const [tax, setTax] = useState("2000");
+  const [tax, setTax] = useState("2");
   const [price, setPrice] = useState("");
   const [other, setOther] = useState("");
   const c = city.chain;
@@ -43,7 +44,7 @@ export default function TestLab() {
   if (city.mode !== "testnet") {
     return (
       <div className="tab">
-        <p>You&apos;re looking at <b>sample data</b>. The test lab runs the real contracts on <b>Elysium</b> with test tokens (tCAPITALE, tVOLTA, tSENT, tVOID) that have no value. Elysium has no public test network, so deploying costs a little real HYPE for gas.</p>
+        <p>You&apos;re looking at <b>sample data</b>. The test lab runs the real contracts on <b>Elysium</b> with test tokens (tCAPITALE, tHYPE and test copies of the five Montra tokens) that have no value. Elysium has no public test network, so deploying costs a little real HYPE for gas.</p>
         <button className="btn primary wide" onClick={() => setMode("testnet")}>Switch to test mode</button>
       </div>
     );
@@ -55,7 +56,7 @@ export default function TestLab() {
       const v = await deployTestCity({ earlyBird: eb }, setStep);
       rememberCity(v);
       await connectCity(v, address ?? null);
-      return "Your test city is live! Grab test $CAPITALE below and build.";
+      return `Your test city is live! Grab test ${TICKER} below and build.`;
     });
 
   const pendingFunds = city.residentsFunds + city.streetFunds;
@@ -66,7 +67,7 @@ export default function TestLab() {
       <h3>1 · Wallet</h3>
       {!isConnected ? (
         <>
-          <button className="btn primary wide" onClick={() => connectors[0] && connect({ connector: connectors[0] })}>Connect wallet</button>
+          <button className="btn primary wide" onClick={connectWallet}>Connect wallet</button>
           <p className="muted small">Use a wallet just for testing (MetaMask, Coinbase Wallet, Rabby). On a phone, open this page inside the wallet app&apos;s browser.</p>
         </>
       ) : chainId !== CHAIN.id ? (
@@ -88,7 +89,7 @@ export default function TestLab() {
       <h3>2 · Test city</h3>
       {!vault ? (
         <>
-          <p>Deploy your own copy of Capitale with test tokens. Your wallet asks you to confirm {DEPLOY_STEPS.length} times.</p>
+          <p>Deploy your own copy of {GAME.name} with test tokens. Your wallet asks you to confirm {DEPLOY_STEPS.length} times.</p>
           <label className="muted small">Early bird length for this test</label>
           <div className="row">
             {[[600, "10 min"], [3600, "1 hour"], [21600, "6 hours (real)"]].map(([s, l]) => (
@@ -129,18 +130,17 @@ export default function TestLab() {
         <>
           <h3>3 · Try everything</h3>
           <div className="stat-grid">
-            <div><span className="muted">Your test $CAPITALE</span><b>{Math.floor(city.capitaleBalance).toLocaleString()}</b></div>
+            <div><span className="muted">Your test {TICKER}</span><b>{Math.floor(city.capitaleBalance).toLocaleString()}</b></div>
             <div><span className="muted">Early bird</span><b>{c.isEarlyBird ? `ends in ${formatCountdown(ebLeft)}` : c.earlyBirdFinalized ? "over, paid out" : "over"}</b></div>
-            <div><span className="muted">VOLTA waiting to buy</span><b>{Math.floor(pendingFunds).toLocaleString()}</b></div>
-            <div><span className="muted">This week buys</span><b>{TOKENS[city.currentToken].token}</b></div>
+            <div><span className="muted">tHYPE waiting to buy</span><b>{pendingFunds.toLocaleString("en-US", { maximumFractionDigits: 3 })}</b></div>
           </div>
           <div className="lab-actions">
-            <button className="btn" disabled={!!busy} onClick={() => act("faucet", testActions.faucet)}>{busy === "faucet" ? "…" : "Get 1,000,000 test $CAPITALE"}</button>
+            <button className="btn" disabled={!!busy} onClick={() => act("faucet", testActions.faucet)}>{busy === "faucet" ? "…" : `Get 1,000,000 test ${TICKER}`}</button>
             <div className="row">
               <input className="input narrow" value={tax} onChange={(e) => setTax(e.target.value)} inputMode="decimal" />
-              <button className="btn" disabled={!!busy} onClick={() => act("trade", () => testActions.simulateTrading(parseEther(tax || "0")))}>{busy === "trade" ? "…" : "Simulate $CAPITALE trading"}</button>
+              <button className="btn" disabled={!!busy} onClick={() => act("trade", () => testActions.simulateTrading(parseEther(tax || "0")))}>{busy === "trade" ? "…" : `Simulate ${TICKER} trading`}</button>
             </div>
-            <p className="muted small">Stands in for real trading on Volta: credits that many tVOLTA of creator fees to the vault in the fee escrow (min {c.minOrder.toLocaleString()} tVOLTA per buy).</p>
+            <p className="muted small">Stands in for real trading on Montra: books that many tHYPE of creator fees for the vault in the test fee hook (min {c.minOrder.toLocaleString()} tHYPE per buy).</p>
             <button className="btn" disabled={!!busy} onClick={() => act("collect", testActions.collectFees)}>{busy === "collect" ? "…" : "Collect creator fees"}</button>
             <p className="muted small">Pulls the fees into the vault and splits them: 70% residents, 15% street pool, 15% ops.</p>
             <button className="btn" disabled={!!busy} onClick={() => act("buy", testActions.requestBuy)}>{busy === "buy" ? "…" : "Trigger a buy (requestBuy)"}</button>
@@ -156,10 +156,10 @@ export default function TestLab() {
           {address && c.oracleOwner === address.toLowerCase() && (
             <>
               <h3>4 · Test controls (only you)</h3>
-              <p className="muted small">Move the test prices to check the rules. Current $CAPITALE price: ${city.capitaleUsd}</p>
+              <p className="muted small">Move the test prices to check the rules. Current {TICKER} price: ${city.capitaleUsd}</p>
               <div className="row">
                 <input className="input narrow" placeholder="0.002" value={price} onChange={(e) => setPrice(e.target.value)} inputMode="decimal" />
-                <button className="btn small" disabled={!!busy || !Number(price)} onClick={() => act("price", () => testActions.setCapitalePrice(Number(price)))}>Set $CAPITALE price</button>
+                <button className="btn small" disabled={!!busy || !Number(price)} onClick={() => act("price", () => testActions.setCapitalePrice(Number(price)))}>Set {TICKER} price</button>
               </div>
               <div className="row">
                 <button className={`btn small ${c.adapterQuality === 10_000 ? "primary" : ""}`} disabled={!!busy} onClick={() => act("q", () => testActions.setQuality(10_000))}>Normal fills</button>
@@ -171,7 +171,7 @@ export default function TestLab() {
         </>
       )}
       {msg && <p className={msg.ok ? "ok-box" : "err-box"}>{msg.text}</p>}
-      <p className="preview-note">Testnet: tokens have no value. The weekly vote still closes on the real Sunday 20:00 Rome time.</p>
+      <p className="preview-note">Testnet: tokens have no value. The weekly street race still closes on the real Sunday deadline (20:00 Rome).</p>
     </div>
   );
 }
