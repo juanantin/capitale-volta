@@ -25,7 +25,7 @@ contract CapitaleNFT is ERC721Enumerable, ReentrancyGuard {
 
     address public constant DEAD = 0x000000000000000000000000000000000000dEaD;
     uint256 public constant MAX_BUILDINGS = 3000;
-    /// Number of districts (cities), fixed at deploy. Capitale: 0 Milano, 1 Roma, 2 Napoli, 3 Venezia.
+    /// Number of districts (cities), fixed at deploy. Capitale: 0 Milano, 1 Roma, 2 Napoli, 3 Venezia, 4 Palermo.
     /// Every city earns the same reward tokens; the city sets the plot and the street race.
     uint8 public immutable districts;
     uint8 public constant STYLES = 3;
@@ -49,7 +49,7 @@ contract CapitaleNFT is ERC721Enumerable, ReentrancyGuard {
     mapping(uint256 => Building) internal _buildings;
     /// Residential buildings minted (excludes the Mayor). The next id is totalResidents + 1.
     uint256 public totalResidents;
-    uint256[4] public districtCount;
+    uint256[5] public districtCount;
     uint256 public totalBurned;
 
     event VaultSet(address vault);
@@ -79,7 +79,7 @@ contract CapitaleNFT is ERC721Enumerable, ReentrancyGuard {
         if (address(capitale_) == address(0) || address(pricing_) == address(0) || mayorOwner == address(0)) {
             revert BadConfig();
         }
-        if (districts_ == 0 || districts_ > 4) revert BadConfig();
+        if (districts_ == 0 || districts_ > 5) revert BadConfig();
         districts = districts_;
         capitale = capitale_;
         pricing = pricing_;
@@ -99,7 +99,7 @@ contract CapitaleNFT is ERC721Enumerable, ReentrancyGuard {
 
     // ─────────────────────────── Build ───────────────────────────
 
-    /// @param district  0 Milano, 1 Roma, 2 Napoli, 3 Venezia
+    /// @param district  0 Milano, 1 Roma, 2 Napoli, 3 Venezia, 4 Palermo
     /// @param style     0, 1 or 2
     /// @param inviter   inviting building number, 0 for none (cosmetic only)
     /// @param maxPrice  most $CAPITALE the builder accepts to burn
@@ -188,7 +188,7 @@ contract CapitaleNFT is ERC721Enumerable, ReentrancyGuard {
         string memory json = string.concat(
             '{"name":"Capitale #',
             id.toString(),
-            '","description":"A building in Capitale, a toy city of Italy on Base.","image":"data:image/svg+xml;base64,',
+            '","description":"A palazzo in Capitale, a city of Italy on Elysium, launched on Montra.","image":"data:image/svg+xml;base64,',
             Base64.encode(bytes(_svg(id, b, level, mayor))),
             '","attributes":',
             attrs,
@@ -234,13 +234,15 @@ contract CapitaleNFT is ERC721Enumerable, ReentrancyGuard {
         if (d == 0) return "Milano";
         if (d == 1) return "Roma";
         if (d == 2) return "Napoli";
-        return "Venezia";
+        if (d == 3) return "Venezia";
+        return "Palermo";
     }
 
     function _colour(uint8 d) internal pure returns (string memory) {
         if (d == 0) return "#f2c94c"; // gold
         if (d == 1) return "#f2994a"; // orange
-        if (d == 2) return "#6fcf97"; // green
-        return "#56ccf2"; // blue
+        if (d == 2) return "#e0648f"; // rose
+        if (d == 3) return "#56ccf2"; // blue
+        return "#5fc48a"; // green
     }
 }

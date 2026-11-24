@@ -61,7 +61,7 @@ contract CapitaleNFTTest is BaseTest {
         vm.startPrank(alice);
         capitale.approve(address(nft), type(uint256).max);
         vm.expectRevert(CapitaleNFT.BadDistrict.selector);
-        nft.mint(4, 0, 0, type(uint256).max); // cities are 0 Milano .. 3 Venezia
+        nft.mint(5, 0, 0, type(uint256).max); // cities are 0 Milano .. 4 Palermo
         vm.expectRevert(CapitaleNFT.BadStyle.selector);
         nft.mint(0, 3, 0, type(uint256).max);
         vm.stopPrank();
@@ -127,11 +127,11 @@ contract CapitaleNFTTest is BaseTest {
     }
 
     function test_districtCountBounds() public {
-        assertEq(nft.districts(), 4);
+        assertEq(nft.districts(), 5);
         vm.expectRevert(CapitaleNFT.BadConfig.selector);
         new CapitaleNFT(IERC20(address(capitale)), ICapitalePricing(address(pricing)), mayor, 0);
         vm.expectRevert(CapitaleNFT.BadConfig.selector);
-        new CapitaleNFT(IERC20(address(capitale)), ICapitalePricing(address(pricing)), mayor, 5);
+        new CapitaleNFT(IERC20(address(capitale)), ICapitalePricing(address(pricing)), mayor, 6);
     }
 
     function test_mintRequiresVault() public {

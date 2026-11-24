@@ -24,6 +24,26 @@ contract MockERC20 is ERC20 {
         paused = p;
     }
 
+    // Montra-style holder rewards: paid in another asset, claimed by the holder itself.
+    MockERC20 public rewardAsset;
+    mapping(address => uint256) public rewardOwed;
+
+    function setRewardAsset(MockERC20 a) external {
+        rewardAsset = a;
+    }
+
+    function accrueReward(address holder, uint256 amount) external {
+        rewardAsset.mint(address(this), amount);
+        rewardOwed[holder] += amount;
+    }
+
+    function claimRewards() external returns (uint256 amount) {
+        require(address(rewardAsset) != address(0), "no rewards");
+        amount = rewardOwed[msg.sender];
+        rewardOwed[msg.sender] = 0;
+        if (amount != 0) rewardAsset.transfer(msg.sender, amount);
+    }
+
     function _update(address from, address to, uint256 value) internal override {
         require(!paused, "paused");
         super._update(from, to, value);

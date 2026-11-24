@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-// TEST ONLY. Stand-ins for $CAPITALE, $VOLTA (income + reward), SENT, VOID, the price feed,
-// the swap route and Volta's FeeEscrow, so the whole city can be exercised end to end.
+// TEST ONLY. Stand-ins for $CAPITALE, HYPE (the income, as a faucet token), the five Montra
+// reward tokens, the price feed, the swap route and Montra's LaunchHook, so the whole city can
+// be exercised end to end with tokens that have no value.
 // Test tokens have no value. Never wire these into a real city.
 
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
@@ -36,7 +37,7 @@ contract TestToken is ERC20 {
     }
 }
 
-/// @notice Price feed whose prices the tester sets by hand (stands in for Volta's pool TWAPs).
+/// @notice Price feed whose prices the tester sets by hand (stands in for the Montra pool price reference).
 contract TestOracle is ICapitaleOracle, Ownable {
     uint256 public spot;
     uint256 public twap;
@@ -115,59 +116,69 @@ contract TestSwapAdapter is ISwapAdapter, Ownable {
     }
 }
 
-/// @notice Stand-in for Volta's FeeEscrow. `simulateTrading` credits a recipient (the vault)
-///         with creator fees in the test income token, as $CAPITALE trading would.
-contract TestFeeEscrow {
-    TestToken public immutable token;
-    mapping(address => mapping(address => uint256)) public balances;
+/// @notice Stand-in for Montra's LaunchHook. `simulateTrading` books creator-side fees for a
+///         pool, in the test income token, as $CAPITALE trading would; only the pool's
+///         recipient (the vault) can claim them.
+contract TestMontraHook {
+    TestToken public immutable quote;
+    mapping(bytes32 => uint256) public tab;
+    mapping(bytes32 => address) public recipient;
 
-    event Deposit(address indexed recipient, uint256 amount);
+    event FeesBooked(bytes32 indexed poolId, uint256 amount);
 
-    constructor(TestToken token_) {
-        token = token_;
+    constructor(TestToken quote_) {
+        quote = quote_;
     }
 
-    function simulateTrading(address recipient, uint256 creatorFees) external {
-        token.mint(address(this), creatorFees);
-        balances[recipient][address(token)] += creatorFees;
-        emit Deposit(recipient, creatorFees);
+    /// The first call names the pool's recipient (like a launch naming its fee recipient).
+    function simulateTrading(bytes32 poolId, address recipient_, uint256 creatorFees) external {
+        if (recipient[poolId] == address(0)) recipient[poolId] = recipient_;
+        quote.mint(address(this), creatorFees);
+        tab[poolId] += creatorFees;
+        emit FeesBooked(poolId, creatorFees);
     }
 
-    function withdrawFees(address token_, address recipient, bool) external {
-        uint256 amt = balances[msg.sender][token_];
-        balances[msg.sender][token_] = 0;
-        if (amt != 0) IERC20(token_).transfer(recipient, amt);
+    function claim(bytes32 poolId, address to) external returns (uint256 amount) {
+        require(msg.sender == recipient[poolId], "not recipient");
+        amount = tab[poolId];
+        tab[poolId] = 0;
+        if (amount != 0) quote.transfer(to, amount);
     }
 }
 
 /// @notice Deploys every test stand-in in one transaction, with realistic starting prices.
-///         Reward tokens: tVOLTA (also the income), tSENT, tVOID.
+///         Income: tHYPE. Reward tokens, in the vault's order: tMONTRA, tLiquidV, tEACCAT,
+///         tCHAMELEON, tNUM.
 contract TestKit {
+    bytes32 public constant POOL_ID = keccak256("capitale-test-pool");
     TestToken public immutable capitale;
-    TestToken public immutable volta;
-    TestToken[3] public rewards;
+    TestToken public immutable hype;
+    TestToken[5] public rewards;
     TestOracle public immutable oracle;
     TestSwapAdapter public immutable adapter;
-    TestFeeEscrow public immutable feeEscrow;
+    TestMontraHook public immutable hook;
 
     constructor() {
         capitale = new TestToken("Capitale (test)", "tCAPITALE", 18, 1_000_000e18);
-        volta = new TestToken("Volta (test)", "tVOLTA", 18, 100_000e18);
-        rewards[0] = volta;
-        rewards[1] = new TestToken("Sent.family (test)", "tSENT", 18, 0);
-        rewards[2] = new TestToken("voidcash (test)", "tVOID", 18, 0);
+        hype = new TestToken("HYPE (test)", "tHYPE", 18, 100e18);
+        rewards[0] = new TestToken("Montra (test)", "tMONTRA", 18, 0);
+        rewards[1] = new TestToken("LiquidV (test)", "tLiquidV", 18, 0);
+        rewards[2] = new TestToken("eaccat (test)", "tEACCAT", 18, 0);
+        rewards[3] = new TestToken("CHAMELEON (test)", "tCHAMELEON", 18, 0);
+        rewards[4] = new TestToken("Numpay (test)", "tNUM", 18, 0);
         oracle = new TestOracle(address(this));
         oracle.setCapitale(0.001e18, 0.001e18); // $0.001
-        oracle.setIncomeUsd(0.02e18); // $0.02 per VOLTA
-        oracle.setTokenUsd(address(volta), 0.02e18);
-        oracle.setTokenUsd(address(rewards[1]), 0.005e18);
-        oracle.setTokenUsd(address(rewards[2]), 0.0008e18);
+        oracle.setIncomeUsd(62e18); // $62 per HYPE
+        uint256[5] memory usd = [uint256(0.004e18), 0.0009e18, 0.00027e18, 0.0002e18, 0.00016e18];
+        for (uint256 i; i < 5; ++i) {
+            oracle.setTokenUsd(address(rewards[i]), usd[i]);
+        }
         oracle.transferOwnership(msg.sender);
         adapter = new TestSwapAdapter(oracle, msg.sender);
-        feeEscrow = new TestFeeEscrow(volta);
+        hook = new TestMontraHook(hype);
     }
 
-    function rewardTokens() external view returns (TestToken[3] memory) {
+    function rewardTokens() external view returns (TestToken[5] memory) {
         return rewards;
     }
 }

@@ -24,6 +24,13 @@ contract MockSwapAdapter is ISwapAdapter {
         qualityBps = q;
     }
 
+    /// Per-token execution quality (0 = use qualityBps).
+    mapping(address => uint256) public qualityFor;
+
+    function setQualityFor(address token, uint256 q) external {
+        qualityFor[token] = q;
+    }
+
     function setHonourMinOut(bool h) external {
         honourMinOut = h;
     }
@@ -51,7 +58,8 @@ contract MockSwapAdapter is ISwapAdapter {
         }
         uint8 d = MockERC20(tokenOut).decimals();
         out = (amountIn * incomeUsd * (10 ** d)) / (tokenUsd[tokenOut] * (10 ** dIn));
-        out = (out * qualityBps) / 10_000;
+        uint256 q = qualityFor[tokenOut] != 0 ? qualityFor[tokenOut] : qualityBps;
+        out = (out * q) / 10_000;
         if (honourMinOut) require(out >= minOut, "slippage");
         MockERC20(tokenOut).mint(recipient, out);
     }

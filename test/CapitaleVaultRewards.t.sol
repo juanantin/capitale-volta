@@ -22,51 +22,39 @@ contract CapitaleVaultRewardsTest is BaseTest {
         build(alice, MILANO);
         build(bob, MILANO);
         _buy(0.2 ether);
-        uint256 res = _residentsOut(0, 0.2 ether);
-        assertEq(vault.pending(1, 0), res / 2);
-        assertEq(vault.pending(2, 0), res / 2);
+        uint256 res = _residentsOut(LIQUIDV_IDX, 0.2 ether);
+        assertEq(vault.pending(1, LIQUIDV_IDX), res / 2);
+        assertEq(vault.pending(2, LIQUIDV_IDX), res / 2);
         // A later building gets nothing from earlier purchases.
         build(carol, 0);
-        assertEq(vault.pending(3, 0), 0);
+        assertEq(vault.pending(3, LIQUIDV_IDX), 0);
         _buy(0.2 ether);
-        assertEq(vault.pending(3, 0), res / 3);
-        assertApproxEqAbs(vault.pending(1, 0), res / 2 + res / 3, 1);
+        assertEq(vault.pending(3, LIQUIDV_IDX), res / 3);
+        assertApproxEqAbs(vault.pending(1, LIQUIDV_IDX), res / 2 + res / 3, 1);
     }
 
-    function test_voteCityChangesTokenFixedCitiesDoNot() public {
+    function test_fiveCitiesSameValueOwnToken() public {
         goPublic();
-        build(alice, MILANO); // SENT
-        build(alice, ROMA); // VOLTA
-        build(alice, NAPOLI); // follows the vote
-        build(alice, VENEZIA); // VOID
-        _buy(0.2 ether); // week 0: Napoli on SENT
-        vm.prank(alice);
-        vault.voteAll(VOID_IDX);
-        vm.warp(vault.weekEnd());
-        _buy(0.2 ether); // week 1: Napoli on VOID
-        assertGt(vault.pending(3, SENT_IDX), 0);
-        assertGt(vault.pending(3, VOID_IDX), 0);
-        assertEq(vault.pending(3, VOLTA_IDX), 0);
-        assertEq(vault.pending(1, VOID_IDX) + vault.pending(1, VOLTA_IDX), 0);
-        assertEq(vault.pending(2, SENT_IDX) + vault.pending(2, VOID_IDX), 0);
-        assertEq(vault.pending(4, SENT_IDX) + vault.pending(4, VOLTA_IDX), 0);
-        // Every building has earned the same value (week 0's street race was a 4-way tie).
-        for (uint256 id = 2; id <= 4; ++id) {
-            assertApproxEqAbs(vault.pendingUsd(id), vault.pendingUsd(1), 1e9);
+        for (uint8 d; d < N_CITIES; ++d) {
+            build(alice, d); // #d+1 in city d
+        }
+        _buy(0.25 ether);
+        uint8[5] memory earns = cityTokens();
+        for (uint256 id = 1; id <= 5; ++id) {
+            assertEq(vault.pending(id, earns[id - 1]), fill(earns[id - 1], 0.035 ether));
+            assertEq(vault.pendingUsd(id), vault.pendingUsd(1));
         }
         uint256[] memory p = vault.pendingAll(3);
-        assertEq(p.length, 3);
-        vm.prank(alice);
-        vault.claim(3);
-        assertEq(rewards[SENT_IDX].balanceOf(alice), p[SENT_IDX]);
-        assertEq(rewards[VOID_IDX].balanceOf(alice), p[VOID_IDX]);
+        assertEq(p.length, 5);
+        assertGt(p[CHAMELEON_IDX], 0);
+        assertEq(p[MONTRA_IDX] + p[LIQUIDV_IDX] + p[EACCAT_IDX] + p[NUM_IDX], 0);
     }
 
     function test_mayorGetsNothing() public {
         goPublic();
         build(alice, 0);
         _buy(0.2 ether);
-        assertEq(vault.pending(0, 0), 0);
+        assertEq(vault.pending(0, LIQUIDV_IDX), 0);
         vm.prank(mayor);
         vm.expectRevert(CapitaleVault.MayorExcluded.selector);
         vault.claim(0);
@@ -79,7 +67,7 @@ contract CapitaleVaultRewardsTest is BaseTest {
         assertFalse(vault.requestBuy()); // nobody to receive them: the income waits
         build(alice, MILANO);
         _buy(0.2 ether);
-        assertEq(vault.pending(1, SENT_IDX), _residentsOut(SENT_IDX, 0.4 ether));
+        assertEq(vault.pending(1, LIQUIDV_IDX), _residentsOut(LIQUIDV_IDX, 0.4 ether));
     }
 
     function test_earlyBirdPoolPerCity() public {
@@ -87,16 +75,16 @@ contract CapitaleVaultRewardsTest is BaseTest {
         build(alice, MILANO); // early bird
         build(bob, ROMA); // early bird
         _buy(0.2 ether); // during early bird: each city's part goes to its early-bird pool
-        assertEq(vault.earlyBirdPool(MILANO, SENT_IDX), fill(SENT_IDX, 0.07 ether));
-        assertEq(vault.earlyBirdPool(ROMA, VOLTA_IDX), 0.07 ether);
-        assertEq(vault.pending(1, SENT_IDX), 0);
+        assertEq(vault.earlyBirdPool(MILANO, LIQUIDV_IDX), fill(LIQUIDV_IDX, 0.07 ether));
+        assertEq(vault.earlyBirdPool(ROMA, MONTRA_IDX), fill(MONTRA_IDX, 0.07 ether));
+        assertEq(vault.pending(1, LIQUIDV_IDX), 0);
 
         goPublic();
         build(carol, MILANO); // not early bird, built after the window: settles the pools first
         assertTrue(vault.earlyBirdFinalized());
-        assertEq(vault.pending(1, SENT_IDX), fill(SENT_IDX, 0.07 ether));
-        assertEq(vault.pending(2, VOLTA_IDX), 0.07 ether);
-        assertEq(vault.pending(3, SENT_IDX), 0);
+        assertEq(vault.pending(1, LIQUIDV_IDX), fill(LIQUIDV_IDX, 0.07 ether));
+        assertEq(vault.pending(2, MONTRA_IDX), fill(MONTRA_IDX, 0.07 ether));
+        assertEq(vault.pending(3, LIQUIDV_IDX), 0);
     }
 
     function test_laterEarlyBirdsShareThePool() public {
@@ -106,53 +94,54 @@ contract CapitaleVaultRewardsTest is BaseTest {
         build(bob, MILANO); // still early bird: shares the pool when the window closes
         goPublic();
         vault.settle();
-        uint256 res = _residentsOut(SENT_IDX, 0.2 ether);
-        assertEq(vault.pending(1, SENT_IDX), res / 2);
-        assertEq(vault.pending(2, SENT_IDX), res / 2);
+        uint256 res = _residentsOut(LIQUIDV_IDX, 0.2 ether);
+        assertEq(vault.pending(1, LIQUIDV_IDX), res / 2);
+        assertEq(vault.pending(2, LIQUIDV_IDX), res / 2);
     }
 
-    function test_claimPaysAllTokens() public {
+    function test_claimManyPaysEveryToken() public {
         goPublic();
-        build(alice, NAPOLI); // follows the vote: earns each token in turn
-        for (uint8 t; t < 3; ++t) {
-            vm.prank(alice);
-            vault.vote(ids1(1), t);
-            vm.warp(vault.weekEnd());
-            _buy(0.2 ether); // settles first, so it buys token t
+        for (uint8 d; d < N_CITIES; ++d) {
+            build(alice, d);
         }
-        uint256[] memory p = vault.pendingAll(1);
-        assertEq(p.length, 3);
+        _buy(0.25 ether);
+        uint256[] memory ids = new uint256[](5);
+        uint256[5] memory owed;
+        uint8[5] memory earns = cityTokens();
+        for (uint256 id = 1; id <= 5; ++id) {
+            ids[id - 1] = id;
+            owed[earns[id - 1]] = vault.pending(id, earns[id - 1]);
+        }
         vm.prank(alice);
-        vault.claim(1);
-        for (uint8 t; t < 3; ++t) {
-            assertGt(p[t], 0);
-            assertEq(rewards[t].balanceOf(alice), p[t]);
-            assertEq(vault.pending(1, t), 0);
+        vault.claimMany(ids);
+        for (uint8 t; t < N_TOKENS; ++t) {
+            assertGt(owed[t], 0);
+            assertEq(rewards[t].balanceOf(alice), owed[t]);
+        }
+        for (uint256 id = 1; id <= 5; ++id) {
+            assertEq(vault.pendingUsd(id), 0);
         }
     }
 
     function test_claimSkipsFailingTokenAndKeepsItClaimable() public {
         goPublic();
-        build(alice, NAPOLI);
-        _buy(0.2 ether); // SENT
-        vm.prank(alice);
-        vault.vote(ids1(1), 1);
-        vm.warp(vault.weekEnd());
-        _buy(0.2 ether); // VOID
-        uint256 p0 = vault.pending(1, 0);
-        uint256 p1 = vault.pending(1, 1);
+        build(alice, MILANO); // LiquidV
+        build(alice, ROMA); // MONTRA
+        _buy(0.2 ether);
+        uint256 pL = vault.pending(1, LIQUIDV_IDX);
+        uint256 pM = vault.pending(2, MONTRA_IDX);
 
-        rewards[0].setPaused(true);
+        rewards[LIQUIDV_IDX].setPaused(true);
+        vm.prank(alice);
+        vault.claimMany(ids2(1, 2));
+        assertEq(rewards[LIQUIDV_IDX].balanceOf(alice), 0);
+        assertEq(rewards[MONTRA_IDX].balanceOf(alice), pM);
+        assertEq(vault.pending(1, LIQUIDV_IDX), pL); // still claimable
+
+        rewards[LIQUIDV_IDX].setPaused(false);
         vm.prank(alice);
         vault.claim(1);
-        assertEq(rewards[0].balanceOf(alice), 0);
-        assertEq(rewards[1].balanceOf(alice), p1);
-        assertEq(vault.pending(1, 0), p0); // still claimable
-
-        rewards[0].setPaused(false);
-        vm.prank(alice);
-        vault.claim(1);
-        assertEq(rewards[0].balanceOf(alice), p0);
+        assertEq(rewards[LIQUIDV_IDX].balanceOf(alice), pL);
     }
 
     function test_claimManyAndOwnership() public {
@@ -161,10 +150,10 @@ contract CapitaleVaultRewardsTest is BaseTest {
         build(alice, MILANO);
         build(bob, MILANO);
         _buy(0.2 ether);
-        uint256 each = vault.pending(1, 0);
+        uint256 each = vault.pending(1, LIQUIDV_IDX);
         vm.prank(alice);
         vault.claimMany(ids2(1, 2));
-        assertEq(rewards[0].balanceOf(alice), 2 * each);
+        assertEq(rewards[LIQUIDV_IDX].balanceOf(alice), 2 * each);
         vm.prank(alice);
         vm.expectRevert(abi.encodeWithSelector(CapitaleVault.NotBuildingOwner.selector, 3));
         vault.claim(3);
@@ -174,7 +163,7 @@ contract CapitaleVaultRewardsTest is BaseTest {
         goPublic();
         build(alice, 0);
         _buy(0.2 ether);
-        uint256 p = vault.pending(1, 0);
+        uint256 p = vault.pending(1, LIQUIDV_IDX);
         vm.prank(alice);
         nft.transferFrom(alice, bob, 1);
         vm.prank(alice);
@@ -182,7 +171,7 @@ contract CapitaleVaultRewardsTest is BaseTest {
         vault.claim(1);
         vm.prank(bob);
         vault.claim(1);
-        assertEq(rewards[0].balanceOf(bob), p);
+        assertEq(rewards[LIQUIDV_IDX].balanceOf(bob), p);
     }
 
     function test_pendingUsdAtPurchaseTimeValue() public {
@@ -192,7 +181,7 @@ contract CapitaleVaultRewardsTest is BaseTest {
         uint256 expected = 420e18;
         assertEq(vault.pendingUsd(1), expected);
         // Later price moves do not change purchase-time value.
-        oracle.setTokenUsd(address(rewards[0]), 5e18);
+        oracle.setTokenUsd(address(rewards[LIQUIDV_IDX]), 5e18);
         assertApproxEqAbs(vault.pendingUsd(1), expected, 1);
     }
 

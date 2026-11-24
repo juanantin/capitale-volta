@@ -6,15 +6,15 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {TestKit, TestToken, TestSwapAdapter} from "../src/testnet/TestKit.sol";
 import {CapitaleNFT} from "../src/CapitaleNFT.sol";
 import {CapitalePricing} from "../src/CapitalePricing.sol";
-import {CapitaleVault, ICapitaleNFTView, IFeeEscrow, IWETH} from "../src/CapitaleVault.sol";
+import {CapitaleVault, ICapitaleNFTView, IMontraHook, IWETH} from "../src/CapitaleVault.sol";
 import {ICapitaleOracle} from "../src/interfaces/ICapitaleOracle.sol";
 import {ICapitalePricing} from "../src/interfaces/ICapitalePricing.sol";
 import {ICapitaleVault} from "../src/interfaces/ICapitaleVault.sol";
 import {ISwapAdapter} from "../src/interfaces/ISwapAdapter.sol";
 
 /// The exact deploy sequence the website's "Deploy test city" button runs, end to end:
-/// $CAPITALE trading credits creator fees (in VOLTA) to the escrow, the vault collects them,
-/// buys VOLTA / SENT / VOID and buildings claim them.
+/// $CAPITALE trading books creator fees (in test HYPE) in the Montra hook stand-in, the vault
+/// claims them, buys each city's token and buildings claim them.
 contract TestKitTest is Test {
     address juan = makeAddr("juan");
 
@@ -25,32 +25,33 @@ contract TestKitTest is Test {
         CapitalePricing pricing = new CapitalePricing(
             juan, ICapitaleOracle(address(kit.oracle())), block.timestamp, 300, 40e18, [uint256(52e18), 68e18, 88e18, 120e18]
         );
-        CapitaleNFT nft = new CapitaleNFT(IERC20(address(kit.capitale())), ICapitalePricing(address(pricing)), juan, 4);
-        TestToken[3] memory r = kit.rewardTokens();
-        IERC20[] memory toks = new IERC20[](3);
-        ISwapAdapter[] memory routes = new ISwapAdapter[](3);
-        for (uint256 i; i < 3; ++i) {
+        CapitaleNFT nft = new CapitaleNFT(IERC20(address(kit.capitale())), ICapitalePricing(address(pricing)), juan, 5);
+        TestToken[5] memory r = kit.rewardTokens();
+        IERC20[] memory toks = new IERC20[](5);
+        ISwapAdapter[] memory routes = new ISwapAdapter[](5);
+        for (uint256 i; i < 5; ++i) {
             toks[i] = IERC20(address(r[i]));
             routes[i] = ISwapAdapter(address(kit.adapter()));
         }
+        bytes32 poolId = kit.POOL_ID();
         CapitaleVault vault = new CapitaleVault(
             CapitaleVault.Setup({
                 owner: juan,
                 nft: ICapitaleNFTView(address(nft)),
                 earlyBirdEnd: pricing.earlyBirdEnd(),
-                income: IERC20(address(kit.volta())),
-                feeEscrow: IFeeEscrow(address(kit.feeEscrow())),
+                income: IERC20(address(kit.hype())),
+                hook: IMontraHook(address(kit.hook())),
+                poolId: poolId,
                 oracle: ICapitaleOracle(address(kit.oracle())),
                 ops: juan,
                 weth: IWETH(address(0)),
-                districts: 4,
-                initialToken: 1, // the vote city starts on SENT
-                // Milano SENT, Roma VOLTA, Napoli follows the vote, Venezia VOID (kit order: VOLTA, SENT, VOID).
-                cityTokens: [uint8(1), 0, 254, 2]
+                districts: 5,
+                // Milano tLiquidV, Roma tMONTRA, Napoli tCHAMELEON, Venezia tEACCAT, Palermo tNUM.
+                cityTokens: [uint8(1), 0, 3, 2, 4]
             }),
             toks,
             routes,
-            CapitaleVault.BuyParams({minOrder: 10e18, maxOrder: 1_000e18, minInterval: 10 minutes, rejectPause: 6 hours, maxDeviationBps: 400})
+            CapitaleVault.BuyParams({minOrder: 0.1e18, maxOrder: 10e18, minInterval: 10 minutes, rejectPause: 6 hours, maxDeviationBps: 400})
         );
         pricing.setNft(address(nft));
         nft.setVault(ICapitaleVault(address(vault)));
@@ -58,48 +59,33 @@ contract TestKitTest is Test {
         kit.capitale().faucet();
         kit.capitale().approve(address(nft), type(uint256).max);
         assertEq(nft.mint(2, 1, 0, type(uint256).max), 1); // a Napoli palazzo
+        assertEq(nft.mint(1, 0, 0, type(uint256).max), 2); // a Roma palazzo
         vm.stopPrank();
 
-        // $CAPITALE trades; Volta credits the creator share to the vault; anyone collects it.
-        kit.feeEscrow().simulateTrading(address(vault), 100e18);
-        assertEq(vault.collectCreatorFees(), 100e18);
-        assertEq(vault.totalTax(), 100e18);
-        assertTrue(vault.requestBuy());
+        // $CAPITALE trades; Montra books the creator share for the vault; anyone claims it.
+        kit.hook().simulateTrading(poolId, address(vault), 2e18);
+        assertEq(vault.collectCreatorFees(), 2e18);
+        assertEq(vault.totalTax(), 2e18);
+        assertTrue(vault.requestBuy()); // 1.4 tHYPE: half to Napoli (tCHAMELEON), half to Roma (tMONTRA)
         vm.warp(block.timestamp + 6 hours);
         vault.settle();
-        assertGt(vault.pending(1, 1), 0);
+        assertGt(vault.pending(1, 3), 0);
+        assertGt(vault.pending(2, 0), 0);
+        assertEq(vault.pending(1, 0) + vault.pending(2, 3), 0);
 
-        // Napoli follows the vote. Week 2 buys VOLTA itself: no swap, set aside 1:1 for buildings.
-        // Fees collected right at the deadline still count for the week that ended (settlement
-        // is lazy), so Napoli's street prize is 15% of both payments: 70 + 30 = 100.
-        vm.prank(juan);
-        vault.vote(_ids(1), 0);
-        vm.warp(vault.weekEnd());
-        kit.feeEscrow().simulateTrading(address(vault), 100e18);
-        vault.collectCreatorFees();
-        assertTrue(vault.requestBuy());
-        assertEq(vault.heldRewards(0), 100e18);
-
+        uint256 owed = vault.pending(1, 3);
         vm.prank(juan);
         vault.claim(1);
-        assertGt(r[1].balanceOf(juan), 0);
-        assertEq(r[0].balanceOf(juan), 100e18); // residents' 70 + the 30 street prize, all to the one palazzo
+        assertEq(r[3].balanceOf(juan), owed);
 
-        // A bad fill on a swapped token is rejected and pauses buying.
-        vm.prank(juan);
-        vault.vote(_ids(1), 2);
-        vm.warp(vault.weekEnd());
+        // A bad fill is rejected and pauses buying.
         TestSwapAdapter adapter = kit.adapter();
         vm.prank(juan);
         adapter.setQuality(9_000);
-        kit.feeEscrow().simulateTrading(address(vault), 100e18);
+        kit.hook().simulateTrading(poolId, address(vault), 2e18);
         vault.collectCreatorFees();
+        vm.warp(block.timestamp + 10 minutes);
         assertFalse(vault.requestBuy());
         assertGt(vault.pausedUntil(), block.timestamp);
-    }
-
-    function _ids(uint256 a) internal pure returns (uint256[] memory r) {
-        r = new uint256[](1);
-        r[0] = a;
     }
 }

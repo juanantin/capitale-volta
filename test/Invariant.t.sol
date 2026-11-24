@@ -14,11 +14,11 @@ contract Handler is Test {
     MockERC20 internal capitale;
     MockSwapAdapter internal adapter;
     address[3] internal users = [address(0xA11CE), address(0xB0B), address(0xCA401)];
-    uint256[3] public claimed;
-    MockERC20 internal volta;
+    uint256[5] public claimed;
+    MockERC20 internal income;
 
-    constructor(CapitaleNFT nft_, CapitaleVault vault_, MockERC20 capitale_, MockSwapAdapter adapter_, MockERC20 volta_) {
-        volta = volta_;
+    constructor(CapitaleNFT nft_, CapitaleVault vault_, MockERC20 capitale_, MockSwapAdapter adapter_, MockERC20 income_) {
+        income = income_;
         nft = nft_;
         vault = vault_;
         capitale = capitale_;
@@ -33,22 +33,17 @@ contract Handler is Test {
     function buildOne(uint256 u, uint8 d, uint8 s) external {
         if (nft.totalResidents() >= 3000) return;
         vm.prank(users[u % 3]);
-        try nft.mint(d % 4, s % 3, 0, type(uint256).max) {} catch {}
+        try nft.mint(d % 5, s % 3, 0, type(uint256).max) {} catch {}
     }
 
     function pay(uint256 amt) external {
         amt = bound(amt, 0, 5 ether);
-        volta.mint(address(vault), amt); // creator fees in VOLTA
+        income.mint(address(vault), amt); // creator fees in HYPE
     }
 
     function buy(uint256 quality) external {
         adapter.setQuality(bound(quality, 9_000, 11_000));
         vault.requestBuy();
-    }
-
-    function voteAll(uint256 u, uint8 t) external {
-        vm.prank(users[u % 3]);
-        vault.voteAll(t % 3); // VOLTA (identity buy) included
     }
 
     function claimAll(uint256 u) external {
@@ -65,13 +60,13 @@ contract Handler is Test {
             mstore(ids, k)
         }
         if (k == 0) return;
-        uint256[3] memory before;
-        for (uint256 t; t < 3; ++t) {
+        uint256[5] memory before;
+        for (uint256 t; t < 5; ++t) {
             before[t] = MockERC20(address(vault.tokens(t))).balanceOf(who);
         }
         vm.prank(who);
         vault.claimMany(ids);
-        for (uint256 t; t < 3; ++t) {
+        for (uint256 t; t < 5; ++t) {
             claimed[t] += MockERC20(address(vault.tokens(t))).balanceOf(who) - before[t];
         }
     }
@@ -100,17 +95,17 @@ contract InvariantTest is BaseTest {
     function setUp() public override {
         super.setUp();
         vm.warp(START);
-        handler = new Handler(nft, vault, capitale, adapter, volta);
+        handler = new Handler(nft, vault, capitale, adapter, hype);
         targetContract(address(handler));
     }
 
     /// Reward tokens owed to buildings never exceed what the vault keeps aside for them, and
-    /// what it keeps aside is really there (for VOLTA, on top of the unspent income).
+    /// what it keeps aside is really there.
     function invariant_solvent() public view {
         uint256 n = nft.totalResidents();
-        for (uint8 t; t < 3; ++t) {
+        for (uint8 t; t < 5; ++t) {
             uint256 owed = vault.carry(t);
-            for (uint8 d; d < 4; ++d) {
+            for (uint8 d; d < 5; ++d) {
                 owed += vault.earlyBirdPool(d, t);
             }
             for (uint256 id = 1; id <= n; ++id) {
@@ -123,9 +118,9 @@ contract InvariantTest is BaseTest {
 
     /// Everything bought is either still set aside in the vault or was claimed by an owner.
     function invariant_conservation() public view {
-        for (uint8 t; t < 3; ++t) {
+        for (uint8 t; t < 5; ++t) {
             assertEq(vault.heldRewards(t) + handler.claimed(t), vault.totalBought(t));
-            if (t != VOLTA_IDX) assertEq(rewards[t].balanceOf(address(vault)), vault.heldRewards(t));
+            assertEq(rewards[t].balanceOf(address(vault)), vault.heldRewards(t));
         }
     }
 
@@ -134,7 +129,7 @@ contract InvariantTest is BaseTest {
             vault.residentsFunds() + vault.streetFunds() + vault.opsFunds() + vault.cityStreetTotal(), vaultIncome()
         );
         uint256 sum;
-        for (uint256 d; d < 4; ++d) {
+        for (uint256 d; d < 5; ++d) {
             sum += vault.cityStreetFunds(d);
         }
         assertEq(sum, vault.cityStreetTotal());
@@ -142,7 +137,7 @@ contract InvariantTest is BaseTest {
 
     function invariant_countsConsistent() public view {
         uint256 sum;
-        for (uint256 d; d < 4; ++d) {
+        for (uint256 d; d < 5; ++d) {
             sum += nft.districtCount(d);
             assertEq(nft.districtCount(d), vault.districtResidents(d));
         }
@@ -152,14 +147,8 @@ contract InvariantTest is BaseTest {
         assertLe(nft.totalResidents(), 3000);
     }
 
-    function invariant_votesBounded() public view {
-        uint256[] memory v = vault.votesOf(vault.week());
-        assertEq(v.length, 3);
-        assertLe(v[0] + v[1] + v[2], vault.residents());
-    }
-
     function invariant_mayorNeverEarns() public view {
-        for (uint8 t; t < 3; ++t) {
+        for (uint8 t; t < 5; ++t) {
             assertEq(vault.pending(0, t), 0);
         }
         assertEq(vault.claimedUsd(0), 0);
