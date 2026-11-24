@@ -1,8 +1,8 @@
-// Generates Capitale's app icon (app/icon.svg) in Volta's engraved look:
-// forest plate, mint guilloche rosettes, a small palazzo with a domed tower and the star.
+// Generates Capitale's app icon (app/icon.svg) in Montra's look: a near-black plate, gold
+// guilloche rosettes, a small palazzo with a domed tower and the star.
 import { writeFileSync } from "node:fs";
 
-const FOREST = "#0b2a21", MINT = "#80e3ba", DEEP = "#08201a";
+const FOREST = "#0a0a0a", MINT = "#e9b64a", DEEP = "#050505";
 function rosette(cx, cy, r, petals, inner) {
   const steps = petals * 40;
   let d = "";

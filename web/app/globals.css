@@ -58,7 +58,7 @@ a {
   inset: 0;
 }
 
-/* Shared panel surface (Volta's cards). */
+/* Shared panel surface. */
 .surface,
 .token-card,
 .stat,
@@ -486,7 +486,7 @@ a {
   font-weight: 500;
 }
 
-/* Volta's "rule-after": a mint line fading out after a heading. */
+/* "Rule-after": an accent line fading out after a heading. */
 .sheet-head h2::after,
 .tab h3::after {
   content: "";
@@ -1211,7 +1211,7 @@ a {
   }
 }
 
-/* ─────────── light ("clear") theme: Volta's light palette ─────────── */
+/* ─────────── light theme (base; the Montra block below overrides it) ─────────── */
 
 :root[data-theme="light"] {
   --void: #edf5f2;

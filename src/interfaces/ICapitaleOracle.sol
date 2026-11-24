@@ -11,8 +11,8 @@ interface ICapitaleOracle {
     /// @notice Time-weighted average USD price of $CAPITALE (30-60 min window).
     function capitaleUsdTwap() external view returns (uint256);
 
-    /// @notice USD price of one whole unit of the vault's income asset (e.g. $VOLTA, or the
-    ///         native coin when income is native).
+    /// @notice USD price of one whole unit of the vault's income asset (HYPE on Montra, the
+    ///         native coin, or an ERC-20).
     function incomeUsd() external view returns (uint256);
 
     /// @notice Reference (time-weighted average) USD price of a reward token.

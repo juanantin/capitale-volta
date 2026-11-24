@@ -109,7 +109,8 @@ contract CapitaleVault is ICapitaleVault, Ownable2Step, ReentrancyGuard {
     uint8 public constant NO_TOKEN = type(uint8).max;
     /// Number of districts (cities), fixed at deploy. Capitale: 4 (Milano, Roma, Napoli, Venezia).
     uint8 public immutable districts;
-    /// Number of reward tokens, fixed at deploy. Capitale on Volta: 3 (VOLTA, SENT, VOID).
+    /// Number of reward tokens, fixed at deploy. Capitale on Montra: 5 (MONTRA, LiquidV, EACCAT,
+    /// CHAMELEON, NUM).
     uint8 public immutable tokenCount;
     /// Token each city earns (index into `tokens`). Fixed at deploy.
     uint8[5] public cityToken;
@@ -278,8 +279,8 @@ contract CapitaleVault is ICapitaleVault, Ownable2Step, ReentrancyGuard {
 
     receive() external payable {}
 
-    /// @notice Lets the vault hold Volta's creator NFT for $CAPITALE (its fee share then flows
-    ///         here). Nothing can move it out again: the fee stream is locked to the city.
+    /// @notice Lets the vault hold an NFT sent to it (a fee-recipient NFT, on launchpads that use
+    ///         one). Nothing can move it out again: such a fee stream is locked to the city.
     function onERC721Received(address, address, uint256, bytes calldata) external pure returns (bytes4) {
         return this.onERC721Received.selector;
     }
@@ -517,7 +518,8 @@ contract CapitaleVault is ICapitaleVault, Ownable2Step, ReentrancyGuard {
         cityStreetTotal -= stUsed;
     }
 
-    /// @dev One swap per token (VOLTA is kept 1:1), each checked against the oracle reference.
+    /// @dev One swap per token (a reward token that is the income asset is kept 1:1), each checked
+    ///      against the oracle reference.
     function _buyTokens(uint256[5] memory tokIn, uint256 incomeUsd_, uint16 maxDevBps)
         internal
         returns (uint256[5] memory tokOut, uint256[5] memory tokUsd)

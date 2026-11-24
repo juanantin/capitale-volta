@@ -116,3 +116,18 @@ Change any of these by asking Claude; none is hard to revisit before deployment.
 - Look: Volta's engraved-banknote style (see CLAUDE.md). The old toy sprites are not used.
 - Test mode deploys on Elysium itself (no public testnet; gas costs a little real HYPE),
   with test tokens tVOLTA/tSENT/tVOID/tCAPITALE and a test fee escrow that simulates trading.
+
+# Capitale on Montra (24 Nov 2026) — this repo
+- Juan: launch Capitale (not VICE) on Montra, Elysium's launchpad; keep the Volta version as a
+  backup (branch `launch-volta`). Remove the Riviera look; follow Montra's design.
+- Pair: HYPE (Montra's default). The vault is the pool's fee recipient: `collectCreatorFees()`
+  calls Montra's `LaunchHook.claim(poolId, vault)`. Income is native HYPE.
+- Five cities (Palermo added) and five tokens, Montra's top five by market cap on 24 Nov 2026
+  minus EACCVIDIA (paired with a 3x leveraged NVIDIA token): MONTRA, LiquidV, EACCAT,
+  CHAMELEON, NUM. One fixed token per city (Milano LiquidV, Roma MONTRA, Napoli CHAMELEON,
+  Venezia EACCAT, Palermo NUM); the weekly vote is removed (Juan's choice).
+- Reward tokens that pay their holders (Montra's "holders" route) pay the vault too:
+  `claimHolderRewards()` claims that HYPE and it becomes city tax.
+- Ported from VICE (launched on Volta, Nov 2026): BUY_GAS fixed gas budget for orders, the
+  site's live mode and UX improvements, the keeper. Volta-specific parts (oracle, swap
+  adapter, launch wizard, deploy script) still need Montra versions.

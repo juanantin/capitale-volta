@@ -1,0 +1,36 @@
+# Runs the Capitale keeper (ported from VICE, where it ran the launched city). GitHub's own
+# schedule can be slow (VICE saw hours between runs), so an outside timer can start it every
+# 10 minutes: e.g. cron-job.org POSTs to
+#   https://api.github.com/repos/juanantin/capitale-volta/actions/workflows/keeper.yml/dispatches
+# with body {"ref":"main"} and a fine-grained token (this repo only, Actions: read and write).
+# The schedule below stays as a backup; the concurrency group keeps runs from overlapping.
+# Setup (once, in the repo's Settings → Secrets and variables → Actions):
+#   secret   KEEPER_PRIVATE_KEY  a NEW wallet used only for this, holding ~1 HYPE for gas
+#   variable CAPITALE_VAULT      the vault address (optional: otherwise read from web/lib/config.ts)
+# Until the city is live the job does nothing. "Run workflow" on the Actions tab runs it by hand.
+name: keeper
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch: {}
+concurrency:
+  group: keeper
+  cancel-in-progress: false
+permissions:
+  contents: read
+jobs:
+  keep:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+      - run: npm ci --no-audit --no-fund
+        working-directory: keeper
+      - run: node keeper.mjs
+        working-directory: keeper
+        env:
+          KEEPER_PRIVATE_KEY: ${{ secrets.KEEPER_PRIVATE_KEY }}
+          CAPITALE_VAULT: ${{ vars.CAPITALE_VAULT }}
