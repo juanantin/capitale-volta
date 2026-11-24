@@ -4,7 +4,7 @@ export default function WhitePaper() {
   const earnsList = DISTRICTS.map((d) => `${d.city} earns ${TOKENS[d.earns].token}`).join(", ");
   return (
     <article className="tab paper">
-      <h2>{GAME.name} — White Paper</h2>
+      <h2>{GAME.name} — Rules</h2>
       <p className="muted small">Version 0.2 · draft for review</p>
 
       <h3>1. What is {GAME.name}?</h3>

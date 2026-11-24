@@ -24,7 +24,7 @@ const TABS = [
   { key: "feed", label: "Live", icon: "" },
   { key: "rank", label: "Rankings", icon: "" },
   { key: "treasury", label: "Treasury", icon: "" },
-  { key: "paper", label: "White Paper", icon: "" },
+  { key: "paper", label: "Rules", icon: "" },
   { key: "sindaco", label: "Il Sindaco", icon: "" },
 ] as const;
 type TabKey = (typeof TABS)[number]["key"];

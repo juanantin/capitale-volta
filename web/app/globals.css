@@ -1912,22 +1912,44 @@ h3 {
   line-height: 1.55;
 }
 
-/* Tab bar: Montra's flat nav, mono labels, a gold rule under the active tab. */
+/* Tab bar: Montra's nav, made easy to spot: solid black, a gold line on top, bright mono
+   labels, the active tab in gold with a soft glow. */
 .ti {
   display: none;
 }
 .tabs {
-  background: var(--plate);
-  border-color: var(--border);
+  /* A metallic gold frame, the same gold as the Connect wallet button. */
+  border: 1.5px solid transparent;
+  background:
+    linear-gradient(180deg, #121212, #070707) padding-box,
+    var(--gold-metal) border-box;
+  box-shadow: 0 0 24px -8px rgb(var(--glow) / 0.45), 0 18px 40px -16px #000000cc;
+}
+:root[data-theme="light"] .tabs {
+  background:
+    linear-gradient(180deg, #ffffff, #f4f2ec) padding-box,
+    var(--gold-metal) border-box;
 }
 .tabs button {
   font-family: var(--mono);
   text-transform: uppercase;
-  letter-spacing: 0.1em;
-  color: var(--muted);
+  letter-spacing: 0.12em;
+  color: var(--ivory);
+  opacity: 0.82;
+  transition: color 0.15s, opacity 0.15s, background 0.15s;
+}
+.tabs .tl {
+  font-size: 12px;
+  font-weight: 500;
+}
+.tabs button:hover {
+  opacity: 1;
+  color: var(--mint);
 }
 .tabs button.on {
-  color: var(--ivory);
+  opacity: 1;
+  color: var(--mint);
+  background: linear-gradient(180deg, transparent 40%, rgb(var(--glow) / 0.14));
   box-shadow: inset 0 -2px 0 var(--mint);
 }
 
